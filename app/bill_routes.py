@@ -291,10 +291,13 @@ def generate_quarterly_bills():
             flash(f"Successfully generated {result['total_count']} bills.", 'success')
         
         # Redirect to review page
-        return redirect(url_for('bills.review_bills', folder=result['folder']))
+        return redirect(f'/accounting/bills/{result["folder"]}/review')
         
     except Exception as e:
+        import traceback
         flash(f'Error generating bills: {str(e)}', 'error')
+        print(f"ERROR: {str(e)}")
+        print(traceback.format_exc())
         return redirect('/accounting/quarterly_report')
 
 
