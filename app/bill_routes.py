@@ -22,7 +22,7 @@ from app.models import db, Member, Accounting, MemberFeePayment, MemberFee
 from bill_generator import BillGenerator
 
 # Create blueprint
-bill_bp = Blueprint('bills', __name__, url_prefix='/accounting')
+bill_bp = Blueprint('bills', __name__)
 
 # Email configuration
 EMAIL_CONFIG = {
@@ -180,7 +180,7 @@ Communauté Energétique
         return False, f"Error sending email: {str(e)}"
 
 
-@bill_bp.route('/quarterly_report/bills', methods=['POST'])
+@bill_bp.route('/accounting/quarterly_report/bills', methods=['POST'])
 def generate_quarterly_bills():
     """
     POST endpoint to generate bills from quarterly report data.
@@ -301,7 +301,7 @@ def generate_quarterly_bills():
         return redirect('/accounting/quarterly_report')
 
 
-@bill_bp.route('/bills/<folder>/review', methods=['GET'])
+@bill_bp.route('/accounting/bills/<folder>/review', methods=['GET'])
 def review_bills(folder):
     """
     GET endpoint to show bills and their email status.
@@ -392,7 +392,7 @@ def review_bills(folder):
         return redirect('/accounting/quarterly_report')
 
 
-@bill_bp.route('/bills/<folder>/send', methods=['POST'])
+@bill_bp.route('/accounting/bills/<folder>/send', methods=['POST'])
 def send_bills(folder):
     """
     POST endpoint to send bills via email.
@@ -511,7 +511,7 @@ def send_bills(folder):
             return redirect(url_for('bills.review_bills', folder=folder))
 
 
-@bill_bp.route('/bills/<folder>/status', methods=['GET'])
+@bill_bp.route('/accounting/bills/<folder>/status', methods=['GET'])
 def get_bill_status(folder):
     """
     GET endpoint to check email status.
@@ -542,7 +542,7 @@ def get_bill_status(folder):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@bill_bp.route('/bills/<folder>/resend', methods=['POST'])
+@bill_bp.route('/accounting/bills/<folder>/resend', methods=['POST'])
 def resend_bill(folder):
     """
     POST endpoint to resend bills to specific members.
@@ -654,7 +654,7 @@ def resend_bill(folder):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@bill_bp.route('/bills/<folder>/download/<filename>')
+@bill_bp.route('/accounting/bills/<folder>/download/<filename>')
 def download_bill(folder, filename):
     """
     Download a specific bill PDF.
@@ -668,7 +668,7 @@ def download_bill(folder, filename):
     return send_from_directory(folder_path, filename, as_attachment=True)
 
 
-@bill_bp.route('/bills/list')
+@bill_bp.route('/accounting/bills/list')
 def list_bill_folders():
     """
     List all generated bill folders.
