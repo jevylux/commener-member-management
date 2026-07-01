@@ -20,10 +20,8 @@ class Member(db.Model):
     pods = db.relationship('Pod', backref='member', lazy=True)
     member_fee_payments = db.relationship('MemberFeePayment', backref='member', lazy=True)
     accounting_records_member = db.relationship('Accounting', backref='member', lazy=True)
-    
-    # Relationship for bill emails
     bill_emails = db.relationship('BillEmail', backref='member', lazy=True, cascade='all, delete-orphan')
-
+    
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if self.payment not in ('', 'Bank', 'Payconiq'):
@@ -153,9 +151,6 @@ class BillEmail(db.Model):
     beStatus = db.Column(db.String(20), nullable=False, default='pending')
     beErrorMessage = db.Column(db.Text, nullable=True)
     beResendCount = db.Column(db.Integer, nullable=False, default=0)
-    
-    # Relationship to Member
-    member = db.relationship('Member', backref='bill_emails', lazy=True)
     
     __table_args__ = (
         db.Index('ix_bill_email_member', 'beMemberID'),
