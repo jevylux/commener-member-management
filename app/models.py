@@ -13,10 +13,21 @@ class Member(db.Model):
     phoneNumber = db.Column(db.String(20))
     email = db.Column(db.String(255))
     energyID = db.Column(db.String(50))
+    energyIDName = db.Column(db.String(100))
+    payment = db.Column(db.String(50))
+    BankAccount = db.Column(db.String(30))
+    Payconiq = db.Column(db.String(50))
     pods = db.relationship('Pod', backref='member', lazy=True)
     member_fee_payments = db.relationship('MemberFeePayment', backref='member', lazy=True)
     accounting_records_member = db.relationship('Accounting', backref='member', lazy=True)
+    
+    # Relationship for bill emails
+    bill_emails = db.relationship('BillEmail', backref='member', lazy=True, cascade='all, delete-orphan')
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.payment not in ('', 'Bank', 'Payconiq'):
+            raise ValueError("payment must be 'Bank' or 'Payconiq'")
     def __repr__(self):
         return f'<Member {self.firstname} {self.name}>'
 
@@ -71,7 +82,7 @@ class PodSharingGroup(db.Model):
     msgID = db.Column(db.Integer, primary_key=True, autoincrement=True)
     podID = db.Column(db.Integer, db.ForeignKey('pods.podsID'), nullable=False)
     sharingGroupID = db.Column(db.Integer, db.ForeignKey('sharingGroup.sgID'), nullable=False)
-    #Add relationship to Pod
+    # Relationship to Pod
     pod_detail = db.relationship('Pod', backref='pod_sharing_groups', lazy=True)
     __table_args__ = (
         db.UniqueConstraint('podID', 'sharingGroupID', name='uix_pod_sharing_group'),
@@ -126,3 +137,31 @@ class Accounting(db.Model):
 
     def __repr__(self):
         return f'<Accounting {self.accYear}-{self.accMonth} memberID={self.accMember} podID={self.accPod} amount={self.accAmount}>'
+
+
+class BillEmail(db.Model):
+    """Track bill emails sent to members."""
+    __tablename__ = 'bill_email'
+    
+    beID = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    beMemberID = db.Column(db.Integer, db.ForeignKey('members.id', ondelete='CASCADE'), nullable=False)
+    beYear = db.Column(db.Integer, nullable=False)
+    beQuarter = db.Column(db.Integer, nullable=False)
+    beFilename = db.Column(db.String(255), nullable=False)
+    beSentDate = db.Column(db.DateTime, nullable=True)
+    beEmailTo = db.Column(db.String(255), nullable=True)
+    beStatus = db.Column(db.String(20), nullable=False, default='pending')
+    beErrorMessage = db.Column(db.Text, nullable=True)
+    beResendCount = db.Column(db.Integer, nullable=False, default=0)
+    
+    # Relationship to Member
+    member = db.relationship('Member', backref='bill_emails', lazy=True)
+    
+    __table_args__ = (
+        db.Index('ix_bill_email_member', 'beMemberID'),
+        db.Index('ix_bill_email_year_quarter', 'beYear', 'beQuarter'),
+        db.Index('ix_bill_email_status', 'beStatus'),
+    )
+    
+    def __repr__(self):
+        return f'<BillEmail {self.beYear}-Q{self.beQuarter} Member:{self.beMemberID} Status:{self.beStatus}>'
