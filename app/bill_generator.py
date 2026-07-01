@@ -268,7 +268,10 @@ class BillGenerator:
         Returns:
             Dict with 'folder', 'bills' (list of bill info), and 'total_count'
         """
-        from app.models import Member
+        try:
+            from app.models import Member
+        except ImportError:
+            from models import Member
         
         # Create folder for this batch
         folder_path = self.create_bill_folder(year, quarter)

@@ -10,6 +10,7 @@ from sqlalchemy import text, func
 from sqlalchemy.sql import bindparam
 from datetime import datetime
 import os
+import sys
 import smtplib
 import ssl
 from email.mime.text import MIMEText
@@ -18,8 +19,15 @@ from email.mime.base import MIMEBase
 from email import encoders
 import json
 
-from app.models import db, Member, Accounting, MemberFeePayment, MemberFee
-from bill_generator import BillGenerator
+# Handle imports for both Docker and local development
+try:
+    # Try Docker-style imports first (when running from /app directory)
+    from models import db, Member, Accounting, MemberFeePayment, MemberFee
+    from bill_generator import BillGenerator
+except ImportError:
+    # Fall back to local development imports
+    from app.models import db, Member, Accounting, MemberFeePayment, MemberFee
+    from app.bill_generator import BillGenerator
 
 # Create blueprint
 bill_bp = Blueprint('bills', __name__)
@@ -237,8 +245,18 @@ def generate_quarterly_bills():
         ORDER BY m.name, m.firstname
         """).bindparams(bindparam('months', expanding=True))
         
-        # Execute query
-        from app import engine
+        # Execute query - get engine from current_app or import
+        try:
+            # Try to get engine from current_app config (Flask way)
+            from sqlalchemy import create_engine
+            engine = create_engine(current_app.config['SQLALCHEMY_DATABASE_URI'])
+        except:
+            # Fallback for local development
+            try:
+                from app import engine
+            except ImportError:
+                from __init__ import engine
+        
         with engine.connect() as connection:
             result = connection.execute(query, {
                 'year': year,
