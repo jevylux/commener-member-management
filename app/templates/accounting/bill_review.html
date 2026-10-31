@@ -1,397 +1,290 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "base.html" %} {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Bill Review - {{ year }} {{ quarter }}</h1>
-    <div>
-        <a href="/accounting/reports" class="btn btn-outline-secondary">
-            <i class="bi bi-arrow-left"></i> Back to Reports
-        </a>
-        <a href="{{ url_for('main.create_quarterly_report') }}" class="btn btn-outline-primary ms-2">
-            <i class="bi bi-plus-lg"></i> New Report
-        </a>
-    </div>
+  <h1>Bill Review - {{ year }} {{ quarter }}</h1>
+  <div>
+    <a href="/accounting/reports" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Back to Reports
+    </a>
+    <a
+      href="{{ url_for('create_quarterly_report') }}"
+      class="btn btn-outline-primary ms-2"
+    >
+      <i class="bi bi-plus-lg"></i> New Report
+    </a>
+  </div>
 </div>
 
 <!-- Status Summary Cards -->
 <div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card text-center">
-            <div class="card-body">
-                <h5 class="card-title text-muted">Total Bills</h5>
-                <h2 class="card-text">{{ total_bills }}</h2>
-            </div>
-        </div>
+  <div class="col-md-3">
+    <div class="card text-center">
+      <div class="card-body">
+        <h5 class="card-title text-muted">Total Bills</h5>
+        <h2 class="card-text">{{ total_bills }}</h2>
+      </div>
     </div>
-    <div class="col-md-3">
-        <div class="card text-center border-success">
-            <div class="card-body">
-                <h5 class="card-title text-success">Sent</h5>
-                <h2 class="card-text text-success">{{ sent_bills }}</h2>
-            </div>
-        </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center border-success">
+      <div class="card-body">
+        <h5 class="card-title text-success">Sent</h5>
+        <h2 class="card-text text-success">{{ sent_bills }}</h2>
+      </div>
     </div>
-    <div class="col-md-3">
-        <div class="card text-center border-warning">
-            <div class="card-body">
-                <h5 class="card-title text-warning">Pending</h5>
-                <h2 class="card-text text-warning">{{ pending_bills }}</h2>
-            </div>
-        </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center border-warning">
+      <div class="card-body">
+        <h5 class="card-title text-warning">Pending</h5>
+        <h2 class="card-text text-warning">{{ pending_bills }}</h2>
+      </div>
     </div>
-    <div class="col-md-3">
-        <div class="card text-center border-danger">
-            <div class="card-body">
-                <h5 class="card-title text-danger">Failed</h5>
-                <h2 class="card-text text-danger">{{ failed_bills }}</h2>
-            </div>
-        </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center border-danger">
+      <div class="card-body">
+        <h5 class="card-title text-danger">Failed</h5>
+        <h2 class="card-text text-danger">{{ failed_bills }}</h2>
+      </div>
     </div>
+  </div>
 </div>
 
 <!-- Progress Bar -->
-<div class="mb-4">
-    <div class="d-flex justify-content-between mb-2">
-        <span class="fw-bold">Sending Progress</span>
-        <span id="progress-text">{{ sent_bills }} of {{ total_bills }} sent</span>
-    </div>
-    <div class="progress" style="height: 25px;">
-        {% set progress_percent = (sent_bills / total_bills * 100) if total_bills > 0 else 0 %}
-        <div class="progress-bar bg-success" role="progressbar" 
-             style="width: {{ progress_percent }}%;" 
-             aria-valuenow="{{ sent_bills }}" 
-             aria-valuemin="0" 
-             aria-valuemax="{{ total_bills }}">
-            {{ "%.0f"|format(progress_percent) }}%
-        </div>
-    </div>
+<div class="progress mb-4" style="height: 30px">
+  {% set progress_percent = (sent_bills / total_bills * 100) if total_bills > 0
+  else 0 %}
+  <div
+    class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+    role="progressbar"
+    style="width: {{ progress_percent }}%;"
+    aria-valuenow="{{ sent_bills }}"
+    aria-valuemin="0"
+    aria-valuemax="{{ total_bills }}"
+  >
+    {{ "%.0f"|format(progress_percent) }}%
+  </div>
 </div>
 
-<!-- Actions Toolbar -->
-<div class="card mb-4">
+<!-- Bills Form -->
+<form
+  id="sendBillsForm"
+  method="POST"
+  action="/accounting/bills/{{ folder }}/send"
+>
+  <input type="hidden" name="send_all" id="sendAllField" value="false" />
+
+  <!-- Actions Toolbar -->
+  <div class="card mb-4">
     <div class="card-body">
-        <div class="row align-items-center">
-            <div class="col-md-4">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="selectAll">
-                    <label class="form-check-label fw-bold" for="selectAll">
-                        Select All Bills
-                    </label>
-                </div>
-            </div>
-            <div class="col-md-8 text-end">
-                <button type="button" class="btn btn-success" id="btnSendSelected" disabled>
-                    <i class="bi bi-envelope"></i> Send Selected
-                </button>
-                <button type="button" class="btn btn-outline-success" id="btnSendAll" 
-                        onclick="return confirm('Send emails to ALL members?')">
-                    <i class="bi bi-envelope-fill"></i> Send All
-                </button>
-                <button type="button" class="btn btn-outline-primary" id="btnRefresh">
-                    <i class="bi bi-arrow-clockwise"></i> Refresh Status
-                </button>
-            </div>
+      <div class="row align-items-center">
+        <div class="col-md-3">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="selectAll" />
+            <label class="form-check-label fw-bold" for="selectAll">
+              Select All Bills
+            </label>
+          </div>
         </div>
+        <div class="col-md-3">
+          <!-- Test/Live Mode Switch -->
+          <div class="form-check form-switch">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="sendMode"
+              name="send_mode"
+              value="live"
+            />
+            <label
+              class="form-check-label fw-bold"
+              for="sendMode"
+              id="sendModeLabel"
+            >
+              <span class="badge bg-warning text-dark">TEST MODE</span>
+            </label>
+          </div>
+          <small class="text-muted">Emails go only to BCC in test mode</small>
+        </div>
+        <div class="col-md-6 text-end">
+          <button type="submit" class="btn btn-success" id="btnSendSelected">
+            <i class="bi bi-envelope"></i> Send Selected
+          </button>
+          <button
+            type="submit"
+            class="btn btn-outline-success"
+            id="btnSendAll"
+            onclick="
+              document.getElementById('sendAllField').value = 'true';
+              return confirm('Send emails to ALL members?');
+            "
+          >
+            <i class="bi bi-envelope-fill"></i> Send All
+          </button>
+          <a
+            href="/accounting/bills/{{ folder }}/review"
+            class="btn btn-outline-primary"
+          >
+            <i class="bi bi-arrow-clockwise"></i> Refresh Status
+          </a>
+        </div>
+      </div>
     </div>
-</div>
+  </div>
 
-<!-- Bills Table -->
-<form id="sendBillsForm" method="POST" action="{{ url_for('bills.send_bills', folder=folder) }}">
-    <input type="hidden" name="send_all" id="sendAllField" value="false">
-    
-    <div class="table-responsive">
-        <table class="table table-striped table-hover align-middle">
-            <thead class="table-dark">
-                <tr>
-                    <th style="width: 40px;">
-                        <span class="visually-hidden">Select</span>
-                    </th>
-                    <th>Member</th>
-                    <th>Filename</th>
-                    <th>Size</th>
-                    <th>Created</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for bill in bills %}
-                <tr data-member-id="{{ bill.member_id }}">
-                    <td>
-                        <input class="form-check-input bill-checkbox" type="checkbox" 
-                               name="selected_bills" value="{{ bill.member_id }}"
-                               {% if bill.status == 'sent' %}disabled{% endif %}>
-                    </td>
-                    <td>
-                        <strong>{{ bill.member_name }}</strong>
-                        {% if bill.status == 'failed' and bill.error %}
-                            <br><small class="text-danger">{{ bill.error }}</small>
-                        {% endif %}
-                    </td>
-                    <td><code>{{ bill.filename }}</code></td>
-                    <td>{{ bill.size }}</td>
-                    <td>{{ bill.created }}</td>
-                    <td>
-                        {% if bill.status == 'sent' %}
-                            <span class="badge bg-success">
-                                <i class="bi bi-check-circle"></i> Sent
-                            </span>
-                            {% if bill.sent_at %}
-                                <br><small class="text-muted">{{ bill.sent_at[:10] }}</small>
-                            {% endif %}
-                        {% elif bill.status == 'failed' %}
-                            <span class="badge bg-danger">
-                                <i class="bi bi-x-circle"></i> Failed
-                            </span>
-                            {% if bill.attempts > 0 %}
-                                <br><small class="text-muted">{{ bill.attempts }} attempt(s)</small>
-                            {% endif %}
-                        {% else %}
-                            <span class="badge bg-warning text-dark">
-                                <i class="bi bi-hourglass"></i> Pending
-                            </span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <div class="btn-group btn-group-sm">
-                            <a href="{{ url_for('bills.download_bill', folder=folder, filename=bill.filename) }}" 
-                               class="btn btn-outline-primary" title="Download">
-                                <i class="bi bi-download"></i>
-                            </a>
-                            {% if bill.status != 'sent' %}
-                            <button type="button" class="btn btn-outline-success btn-send-single" 
-                                    data-member-id="{{ bill.member_id }}"
-                                    title="Send Email">
-                                <i class="bi bi-envelope"></i>
-                            </button>
-                            {% endif %}
-                            {% if bill.status == 'sent' %}
-                            <button type="button" class="btn btn-outline-warning btn-resend" 
-                                    data-member-id="{{ bill.member_id }}"
-                                    title="Resend Email">
-                                <i class="bi bi-envelope-check"></i>
-                            </button>
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+  <!-- Bills Table -->
+  <div class="table-responsive">
+    <table class="table table-striped table-hover align-middle">
+      <thead class="table-dark">
+        <tr>
+          <th style="width: 40px">
+            <span class="visually-hidden">Select</span>
+          </th>
+          <th>Member</th>
+          <th>Filename</th>
+          <th>Size</th>
+          <th>Created</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for bill in bills %}
+        <tr>
+          <td>
+          <input
+          class="form-check-input bill-checkbox"
+          type="checkbox"
+          name="selected_bills"
+          value="{{ bill.member_id }}"
+          {{ 'disabled' if bill.status == 'sent' else '' }}
+          />
+          </td>
+          <td>
+            <strong>{{ bill.member_name }}</strong>
+            {% if bill.status == 'failed' and bill.error %}
+            <br /><small class="text-danger">{{ bill.error }}</small>
+            {% endif %}
+          </td>
+          <td><code>{{ bill.filename }}</code></td>
+          <td>{{ bill.size }}</td>
+          <td>{{ bill.created }}</td>
+          <td>
+            {% if bill.status == 'sent' %}
+            <span class="badge bg-success">Sent</span>
+            {% if bill.sent_at %}
+            <br /><small class="text-muted">{{ bill.sent_at[:10] }}</small>
+            {% endif %} {% elif bill.status == 'failed' %}
+            <span class="badge bg-danger">Failed</span>
+            {% if bill.attempts > 0 %}
+            <br /><small class="text-muted">{{ bill.attempts }} attempts</small>
+            {% endif %} {% else %}
+            <span class="badge bg-warning text-dark">Pending</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="btn-group btn-group-sm">
+              <a
+                href="/accounting/bills/{{ folder }}/download/{{ bill.filename }}"
+                class="btn btn-outline-primary"
+              >
+                <i class="bi bi-download"></i>
+              </a>
+              {% if bill.status != 'sent' %}
+              <button
+                type="submit"
+                class="btn btn-outline-success"
+                name="selected_bills"
+                value="{{ bill.member_id }}"
+                onclick="return confirm('Send email to {{ bill.member_name }}?')"
+              >
+                <i class="bi bi-envelope"></i>
+              </button>
+              {% endif %} {% if bill.status == 'sent' %}
+              <button
+                type="submit"
+                class="btn btn-outline-warning"
+                formaction="/accounting/bills/{{ folder }}/resend"
+                name="member_ids"
+                value="{{ bill.member_id }}"
+                onclick="return confirm('Resend email to {{ bill.member_name }}?')"
+              >
+                <i class="bi bi-envelope-check"></i>
+              </button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </form>
 
-<!-- Bulk Send Confirmation Modal -->
-<div class="modal fade" id="sendModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirm Send</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>You are about to send <span id="sendCount">0</span> bill(s) via email.</p>
-                <p>Are you sure you want to continue?</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-success" id="confirmSend">Send Emails</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Results Modal -->
-<div class="modal fade" id="resultsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Email Sending Results</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="resultsContent">
-                    <div class="text-center">
-                        <div class="spinner-border" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <p class="mt-2">Sending emails...</p>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" onclick="location.reload()">Refresh Page</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-{% endblock %}
-
-{% block scripts %}
+{% endblock %} {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Select All checkbox
-    const selectAllCheckbox = document.getElementById('selectAll');
-    const billCheckboxes = document.querySelectorAll('.bill-checkbox:not(:disabled)');
-    const btnSendSelected = document.getElementById('btnSendSelected');
-    const sendAllField = document.getElementById('sendAllField');
-    
-    // Update select all functionality
-    selectAllCheckbox.addEventListener('change', function() {
-        billCheckboxes.forEach(cb => {
-            cb.checked = selectAllCheckbox.checked;
-        });
-        updateSendButton();
-    });
-    
-    // Update send button state when individual checkboxes change
-    billCheckboxes.forEach(cb => {
-        cb.addEventListener('change', updateSendButton);
-    });
-    
-    function updateSendButton() {
-        const checked = document.querySelectorAll('.bill-checkbox:checked').length;
-        btnSendSelected.disabled = checked === 0;
-        btnSendSelected.innerHTML = `<i class="bi bi-envelope"></i> Send Selected (${checked})`;
+  // Select All checkbox functionality
+  document.getElementById("selectAll").addEventListener("change", function () {
+    var checkboxes = document.querySelectorAll(".bill-checkbox:not(:disabled)");
+    for (var i = 0; i < checkboxes.length; i++) {
+      checkboxes[i].checked = this.checked;
     }
-    
-    // Send Selected button
-    const sendModal = new bootstrap.Modal(document.getElementById('sendModal'));
-    const resultsModal = new bootstrap.Modal(document.getElementById('resultsModal'));
-    
-    btnSendSelected.addEventListener('click', function() {
-        const checked = document.querySelectorAll('.bill-checkbox:checked').length;
-        document.getElementById('sendCount').textContent = checked;
-        sendModal.show();
-    });
-    
-    // Send All button
-    document.getElementById('btnSendAll').addEventListener('click', function() {
-        sendAllField.value = 'true';
-        document.getElementById('sendCount').textContent = '{{ total_bills }}';
-        sendModal.show();
-    });
-    
-    // Confirm Send
-    document.getElementById('confirmSend').addEventListener('click', function() {
-        sendModal.hide();
-        resultsModal.show();
-        
-        const form = document.getElementById('sendBillsForm');
-        const formData = new FormData(form);
-        
-        fetch(form.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            let html = '';
-            if (data.success) {
-                html = `
-                    <div class="alert alert-success">
-                        <strong>Success!</strong> Sent ${data.sent_count} emails.
-                        ${data.failed_count > 0 ? `<br>Failed: ${data.failed_count}` : ''}
-                    </div>
-                `;
-                if (data.results && data.results.length > 0) {
-                    html += '<table class="table table-sm"><thead><tr><th>Member</th><th>Status</th><th>Message</th></tr></thead><tbody>';
-                    data.results.forEach(r => {
-                        const statusClass = r.success ? 'text-success' : 'text-danger';
-                        const icon = r.success ? '✓' : '✗';
-                        html += `<tr>
-                            <td>${r.member_name}</td>
-                            <td class="${statusClass}">${icon}</td>
-                            <td>${r.message}</td>
-                        </tr>`;
-                    });
-                    html += '</tbody></table>';
-                }
-            } else {
-                html = `<div class="alert alert-danger">Error: ${data.error}</div>`;
-            }
-            document.getElementById('resultsContent').innerHTML = html;
-        })
-        .catch(error => {
-            document.getElementById('resultsContent').innerHTML = 
-                `<div class="alert alert-danger">Error: ${error.message}</div>`;
-        });
-    });
-    
-    // Send single bill
-    document.querySelectorAll('.btn-send-single').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const memberId = this.dataset.memberId;
-            sendSingleBill([memberId], false);
-        });
-    });
-    
-    // Resend bill
-    document.querySelectorAll('.btn-resend').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const memberId = this.dataset.memberId;
-            if (confirm('Resend email to this member?')) {
-                sendSingleBill([memberId], true);
-            }
-        });
-    });
-    
-    function sendSingleBill(memberIds, isResend) {
-        resultsModal.show();
-        document.getElementById('resultsContent').innerHTML = `
-            <div class="text-center">
-                <div class="spinner-border" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <p class="mt-2">Sending email...</p>
-            </div>
-        `;
-        
-        const endpoint = isResend ? 
-            '{{ url_for("bills.resend_bill", folder=folder) }}' : 
-            '{{ url_for("bills.send_bills", folder=folder) }}';
-        
-        const body = isResend ? 
-            JSON.stringify({ member_ids: memberIds }) :
-            new URLSearchParams({ 'selected_bills': memberIds[0] });
-        
-        const headers = isResend ? 
-            { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } :
-            { 'X-Requested-With': 'XMLHttpRequest' };
-        
-        fetch(endpoint, {
-            method: 'POST',
-            body: body,
-            headers: headers
-        })
-        .then(response => response.json())
-        .then(data => {
-            let html = '';
-            if (data.success) {
-                html = `<div class="alert alert-success">Email sent successfully!</div>`;
-                if (data.results && data.results.length > 0) {
-                    const r = data.results[0];
-                    html += `<p><strong>${r.member_name}</strong>: ${r.message}</p>`;
-                }
-            } else {
-                html = `<div class="alert alert-danger">Error: ${data.error}</div>`;
-            }
-            document.getElementById('resultsContent').innerHTML = html;
-        })
-        .catch(error => {
-            document.getElementById('resultsContent').innerHTML = 
-                `<div class="alert alert-danger">Error: ${error.message}</div>`;
-        });
+    updateSendButton();
+  });
+
+  // Attach change listeners to all bill checkboxes
+  var checkboxes = document.querySelectorAll(".bill-checkbox");
+  for (var i = 0; i < checkboxes.length; i++) {
+    checkboxes[i].addEventListener("change", updateSendButton);
+  }
+
+  // Attach change listener to send mode switch
+  var sendModeCheckbox = document.getElementById("sendMode");
+  if (sendModeCheckbox) {
+    sendModeCheckbox.addEventListener("change", updateSendModeLabel);
+    // Initialize the label on page load
+    updateSendModeLabel();
+  }
+
+  // Update send button state
+  function updateSendButton() {
+    var checked = document.querySelectorAll(".bill-checkbox:checked").length;
+    var btn = document.getElementById("btnSendSelected");
+    if (btn) {
+      btn.disabled = checked === 0;
     }
-    
-    // Refresh Status button
-    document.getElementById('btnRefresh').addEventListener('click', function() {
-        location.reload();
-    });
-});
+  }
+
+  // Update send mode label
+  function updateSendModeLabel() {
+    var checkbox = document.getElementById("sendMode");
+    var label = document.getElementById("sendModeLabel");
+    var sendBtn = document.getElementById("btnSendSelected");
+
+    if (checkbox && label) {
+      if (checkbox.checked) {
+        label.innerHTML = '<span class="badge bg-success">LIVE MODE</span>';
+        if (sendBtn) {
+          sendBtn.classList.remove("btn-success");
+          sendBtn.classList.add("btn-danger");
+          sendBtn.innerHTML =
+            '<i class="bi bi-envelope"></i> Send Selected (LIVE)';
+        }
+      } else {
+        label.innerHTML =
+          '<span class="badge bg-warning text-dark">TEST MODE</span>';
+        if (sendBtn) {
+          sendBtn.classList.remove("btn-danger");
+          sendBtn.classList.add("btn-success");
+          sendBtn.innerHTML =
+            '<i class="bi bi-envelope"></i> Send Selected (TEST)';
+        }
+      }
+    }
+  }
+
+  // Initialize on page load
+  updateSendButton();
+  updateSendModeLabel();
 </script>
 {% endblock %}

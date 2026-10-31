@@ -1,4 +1,5 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %} {% from "_sortable_header.html" import sortable_head %} {% block
+content %}
 <h1>Pods</h1>
 <a href="{{ url_for('create_pod') }}" class="btn btn-primary mb-3"
   >Create New Pod</a
@@ -6,23 +7,23 @@
 <table class="table table-striped">
   <thead>
     <tr>
-      <th>ID</th>
-      <th>Label</th>
-      <th>Type</th>
-      <th>Member</th>
-      <th>Pod Number</th>
-      <th>Energy Production (kwpeak)</th>
-      <th>Energy Storage (kwH)</th>
+      {{ sortable_head('list_pods', 'id', 'ID', sort_key, sort_dir, sort_target, sort_indicator) }}
+      {{ sortable_head('list_pods', 'label', 'Label', sort_key, sort_dir, sort_target, sort_indicator) }}
+      {{ sortable_head('list_pods', 'type', 'Type', sort_key, sort_dir, sort_target, sort_indicator) }}
+      {{ sortable_head('list_pods', 'member_lastname', 'Member', sort_key, sort_dir, sort_target, sort_indicator) }}
+      {{ sortable_head('list_pods', 'number', 'Pod Number', sort_key, sort_dir, sort_target, sort_indicator) }}
+      {{ sortable_head('list_pods', 'production', 'Energy Production (kwpeak)', sort_key, sort_dir, sort_target, sort_indicator) }}
+      {{ sortable_head('list_pods', 'storage', 'Energy Storage (kwH)', sort_key, sort_dir, sort_target, sort_indicator) }}
       <th>Actions</th>
     </tr>
   </thead>
   <tbody>
-    {% for pod in pods %}
+    {% for pod, member in pods %}
     <tr>
       <td>{{ pod.podsID }}</td>
       <td>{{ pod.podlabel }}</td>
       <td>{{ pod.podType }}</td>
-      <td>{{ pod.member.firstname }} {{ pod.member.name }}</td>
+      <td>{{ member.name }} {{ member.firstname }}</td>
       <td>{{ pod.podNumber }}</td>
       <td>{{ pod.energyproduction }}</td>
       <td>{{ pod.energystorage }}</td>

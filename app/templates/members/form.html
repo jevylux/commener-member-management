@@ -32,6 +32,23 @@
     {{ member_form.energyID.label(class="form-label") }} {{
     member_form.energyID(class="form-control") }}
   </div>
+  <div class="mb-3">
+    {{ member_form.energyIDName.label(class="form-label") }} {{
+    member_form.energyIDName(class="form-control") }}
+  </div>
+  <div class="mb-3">
+    {{ member_form.payment.label(class="form-label") }} {{
+    member_form.payment(class="form-select") }}
+  </div>
+  <div class="mb-3">
+    {{ member_form.BankAccount.label(class="form-label") }} {{
+    member_form.BankAccount(class="form-control") }}
+  </div>
+  <div class="mb-3">
+    {{ member_form.Payconiq.label(class="form-label") }} {{
+    member_form.Payconiq(class="form-control") }}
+  </div>
+
   <button type="submit" name="member_submit" class="btn btn-primary">
     Update Member
   </button>
@@ -47,6 +64,8 @@
       <th>Label</th>
       <th>Type</th>
       <th>Pod Number</th>
+      <th>Peak Power (kW)</th>
+      <th>Battery (kWh)</th>
       <th>Actions</th>
     </tr>
   </thead>
@@ -57,6 +76,8 @@
       <td>{{ pod.podlabel }}</td>
       <td>{{ pod.podType }}</td>
       <td>{{ pod.podNumber }}</td>
+      <td>{{ pod.energyproduction or '-' }}</td>
+      <td>{{ pod.energystorage or '-' }}</td>
       <td>
         <a
           href="{{ url_for('detail_pod', id=pod.podsID) }}"
@@ -103,6 +124,16 @@
   <div class="mb-3">
     {{ pod_form.podNumber.label(class="form-label") }} {{
     pod_form.podNumber(class="form-control") }}
+  </div>
+  <div class="mb-3">
+    {{ pod_form.energyproduction.label(class="form-label") }} {{
+    pod_form.energyproduction(class="form-control", placeholder="e.g. 11.6") }}
+    <small class="form-text text-muted">Peak power of the installation in kW (optional, for production pods)</small>
+  </div>
+  <div class="mb-3">
+    {{ pod_form.energystorage.label(class="form-label") }} {{
+    pod_form.energystorage(class="form-control", placeholder="e.g. 15") }}
+    <small class="form-text text-muted">Battery capacity in kWh (optional)</small>
   </div>
   <button type="submit" name="pod_submit" class="btn btn-primary">
     Add Pod
