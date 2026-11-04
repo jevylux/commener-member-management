@@ -69,11 +69,11 @@ def sort_target(endpoint, column, current_key, current_dir):
         current_dir: Current sort direction
     
     Returns:
-        Sort parameter string (e.g. 'name' or '-name')
+        Query string for sorting (e.g. '?sort=name' or '?sort=-name')
     """
     if current_key == column and current_dir == ASC:
-        return f'-{column}'
-    return column
+        return f'?sort=-{column}'
+    return f'?sort={column}'
 
 
 def sort_indicator(column, current_key, current_dir):
