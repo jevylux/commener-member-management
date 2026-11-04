@@ -2529,7 +2529,7 @@ def save_email_progress(folder_name, progress):
 
 
 def update_queue_item_status(folder_name, member_id, status, error=None):
-    """Update the status of a specific item in the queue."""
+    """Update the status of a specific item in the queue and recalculate progress."""
     queue_data = load_email_queue(folder_name)
     if not queue_data:
         return
@@ -2542,6 +2542,32 @@ def update_queue_item_status(folder_name, member_id, status, error=None):
             if error:
                 item['error'] = error
             break
+    
+    # Save updated queue
+    queue_file = get_email_queue_file_path(folder_name)
+    with open(queue_file, 'w') as f:
+        json.dump(queue_data, f, indent=2)
+    
+    # Recalculate and save progress
+    total = len(queue_data['items'])
+    sent = sum(1 for item in queue_data['items'] if item['status'] == 'sent')
+    failed = sum(1 for item in queue_data['items'] if item['status'] == 'failed')
+    pending = total - sent - failed
+    percent = int((sent + failed) / total * 100) if total > 0 else 0
+    
+    progress = load_email_progress(folder_name) or {}
+    progress.update({
+        'folder': folder_name,
+        'status': 'running',
+        'total': total,
+        'sent': sent,
+        'failed': failed,
+        'pending': pending,
+        'percent': percent,
+        'items': queue_data['items'],
+        'updated_at': datetime.now().isoformat()
+    })
+    save_email_progress(folder_name, progress)
     
     # Recalculate counts
     queue_data['sent'] = sum(1 for i in queue_data['items'] if i['status'] == 'sent')
@@ -2709,8 +2735,12 @@ def queue_bills_for_sending(folder):
                     if not send_all and status.get(str(member_id), {}).get('status') == 'sent':
                         continue
                     
+                    member = Member.query.get(member_id)
+                    member_name = f"{member.firstname} {member.name}".strip() if member else f"Member {member_id}"
+                    
                     bill_items.append({
                         'member_id': member_id,
+                        'member_name': member_name,
                         'filename': filename,
                         'filepath': os.path.join(folder_path, filename)
                     })
