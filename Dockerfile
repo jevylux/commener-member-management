@@ -41,5 +41,6 @@ CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
 # to point to the folder on the host machine where the database is stored
 # app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////app/database/commEnergy.db'
 # Execute the following commands :
-# docker build -t comener-data-management .
+# docker build -t comener_member_management .
+# docker save -o commenergy_member_management.tar commenergy_member_management:latest
 # docker run -d -p 8094:5000 -v $(pwd)/database:/database --name flask-container comener-data-management
