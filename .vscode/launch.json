@@ -1,0 +1,24 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Flask App (Local)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "flask",
+            "env": {
+                "FLASK_APP": "run.py",
+                "FLASK_DEBUG": "1",
+                "PYTHONPATH": "${workspaceFolder}"
+            },
+            "args": [
+                "run",
+                "--host=0.0.0.0",
+                "--port=5000"
+            ],
+            "jinja": true,
+            "autoStartBrowser": false,
+            "console": "integratedTerminal"
+        }
+    ]
+}
