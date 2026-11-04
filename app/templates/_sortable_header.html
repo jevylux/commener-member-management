@@ -10,8 +10,12 @@
    flips the direction; clicking another column sorts by it ascending.
 #}
 {% macro sortable_head(endpoint, column, label, current_key, current_dir, target_fn, indicator_fn) %}
+  {% set sort_val = target_fn(endpoint, column, current_key, current_dir) %}
+  {% if sort_val.startswith('?') %}
+    {% set sort_val = sort_val[1:] %}
+  {% endif %}
   <th class="sortable-header{% if column == current_key %} active{% endif %}">
-    <a href="{{ url_for(endpoint) }}{{ target_fn(endpoint, column, current_key, current_dir) }}"
+    <a href="{{ url_for(endpoint) }}?{{ sort_val }}"
        class="text-decoration-none text-reset"
        data-sort-column="{{ column }}">
       {{ label }}{{ indicator_fn(column, current_key, current_dir) }}
