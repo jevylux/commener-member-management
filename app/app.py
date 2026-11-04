@@ -406,7 +406,8 @@ def get_member_name_map():
 # Routes for Members
 @app.route('/members')
 def list_members():
-    sort_key, sort_dir = parse_sort('name', ('id', 'name', 'firstname', 'email', 'payment'))
+    sort_param = request.args.get('sort', 'name')
+    sort_key, sort_dir = parse_sort(sort_param, ('id', 'name', 'firstname', 'email', 'payment'))
     members = sort_rows(
         Member.query.all(),
         sort_key,
@@ -526,7 +527,8 @@ def delete_member(id):
 # Routes for Pods
 @app.route('/pods')
 def list_pods():
-    sort_key, sort_dir = parse_sort('member_lastname', (
+    sort_param = request.args.get('sort', 'member_lastname')
+    sort_key, sort_dir = parse_sort(sort_param, (
         'id', 'label', 'type', 'member_firstname', 'member_lastname',
         'number', 'production', 'storage',
     ))
