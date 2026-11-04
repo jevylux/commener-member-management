@@ -407,7 +407,9 @@ def get_member_name_map():
 @app.route('/members')
 def list_members():
     sort_param = request.args.get('sort', 'name')
+    print(f"DEBUG: sort_param={sort_param!r}")
     sort_key, sort_dir = parse_sort(sort_param, ('id', 'name', 'firstname', 'email', 'payment'))
+    print(f"DEBUG: sort_key={sort_key!r}, sort_dir={sort_dir!r}")
     members = sort_rows(
         Member.query.all(),
         sort_key,
@@ -420,6 +422,7 @@ def list_members():
             'payment': lambda m: (m.payment is None, normalise(m.payment)),
         },
     )
+    print(f"DEBUG: sorted {len(members)} members by {sort_key} {sort_dir}")
     return render_template(
         'members/list.html',
         members=members,
