@@ -2467,6 +2467,7 @@ def create_email_queue(folder_name, bill_items, test_mode=False):
     for item in bill_items:
         queue_data['items'].append({
             'member_id': item['member_id'],
+            'member_name': item.get('member_name', f"Member {item['member_id']}"),
             'filename': item['filename'],
             'filepath': item['filepath'],
             'status': 'pending',  # pending, sending, sent, failed
@@ -2543,54 +2544,32 @@ def update_queue_item_status(folder_name, member_id, status, error=None):
                 item['error'] = error
             break
     
-    # Save updated queue
+    # Recalculate counts
+    total = len(queue_data['items'])
+    sent = sum(1 for i in queue_data['items'] if i['status'] == 'sent')
+    failed = sum(1 for i in queue_data['items'] if i['status'] == 'failed')
+    pending = total - sent - failed
+    done = sent + failed
+    percent = int((done / total) * 100) if total > 0 else 0
+    
+    # Update queue data with counts
+    queue_data['sent'] = sent
+    queue_data['failed'] = failed
+    queue_data['pending'] = pending
+    
+    # Save updated queue (includes items with member_name)
     queue_file = get_email_queue_file_path(folder_name)
     with open(queue_file, 'w') as f:
         json.dump(queue_data, f, indent=2)
     
-    # Recalculate and save progress
-    total = len(queue_data['items'])
-    sent = sum(1 for item in queue_data['items'] if item['status'] == 'sent')
-    failed = sum(1 for item in queue_data['items'] if item['status'] == 'failed')
-    pending = total - sent - failed
-    percent = int((sent + failed) / total * 100) if total > 0 else 0
-    
-    progress = load_email_progress(folder_name) or {}
-    progress.update({
+    # Save progress (without items to keep it small, items come from queue file)
+    progress = {
         'folder': folder_name,
-        'status': 'running',
+        'status': 'running' if pending > 0 else 'completed',
         'total': total,
         'sent': sent,
         'failed': failed,
         'pending': pending,
-        'percent': percent,
-        'items': queue_data['items'],
-        'updated_at': datetime.now().isoformat()
-    })
-    save_email_progress(folder_name, progress)
-    
-    # Recalculate counts
-    queue_data['sent'] = sum(1 for i in queue_data['items'] if i['status'] == 'sent')
-    queue_data['failed'] = sum(1 for i in queue_data['items'] if i['status'] == 'failed')
-    queue_data['pending'] = sum(1 for i in queue_data['items'] if i['status'] == 'pending')
-    
-    # Save updated queue
-    queue_file = get_email_queue_file_path(folder_name)
-    with open(queue_file, 'w') as f:
-        json.dump(queue_data, f, indent=2)
-    
-    # Update progress
-    total = queue_data['total']
-    done = queue_data['sent'] + queue_data['failed']
-    percent = int((done / total * 100)) if total > 0 else 0
-    
-    progress = {
-        'folder': folder_name,
-        'status': 'running' if queue_data['pending'] > 0 else 'completed',
-        'total': total,
-        'sent': queue_data['sent'],
-        'failed': queue_data['failed'],
-        'pending': queue_data['pending'],
         'current': member_id if status == 'sending' else None,
         'percent': percent,
         'updated_at': datetime.now().isoformat()
