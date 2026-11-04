@@ -409,6 +409,8 @@ def list_members():
     sort_key, sort_dir = parse_sort('name', ('id', 'name', 'firstname', 'email', 'payment'))
     members = sort_rows(
         Member.query.all(),
+        sort_key,
+        sort_dir,
         {
             'id': lambda m: (False, m.id),
             'name': lambda m: (m.name is None, normalise(m.name)),
@@ -416,7 +418,6 @@ def list_members():
             'email': lambda m: (m.email is None, normalise(m.email)),
             'payment': lambda m: (m.payment is None, normalise(m.payment)),
         },
-        sort_key, sort_dir,
     )
     return render_template(
         'members/list.html',
@@ -531,6 +532,8 @@ def list_pods():
     ))
     pods = sort_rows(
         db.session.query(Pod, Member).join(Member, Pod.memberID == Member.id).all(),
+        sort_key,
+        sort_dir,
         {
             'id': lambda p_m: (False, p_m[0].podsID),
             'label': lambda p_m: (p_m[0].podlabel is None, normalise(p_m[0].podlabel)),
@@ -541,7 +544,6 @@ def list_pods():
             'production': lambda p_m: (p_m[0].energyproduction is None, p_m[0].energyproduction or 0),
             'storage': lambda p_m: (p_m[0].energystorage is None, p_m[0].energystorage or 0),
         },
-        sort_key, sort_dir,
     )
     return render_template(
         'pods/list.html',
