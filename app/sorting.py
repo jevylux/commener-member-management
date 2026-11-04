@@ -59,35 +59,36 @@ def sort_rows(items, sort_key, sort_dir, key_map):
     return sorted_items
 
 
-def sort_target(sort_key, sort_dir, column):
+def sort_target(endpoint, column, current_key, current_dir):
     """Generate a sort query parameter for a column header link.
     
     Args:
-        sort_key: Current sort key
-        sort_dir: Current sort direction
+        endpoint: The endpoint (kept for template compatibility)
         column: The column being clicked
+        current_key: Current sort key
+        current_dir: Current sort direction
     
     Returns:
         Sort parameter string (e.g. 'name' or '-name')
     """
-    if sort_key == column and sort_dir == ASC:
+    if current_key == column and current_dir == ASC:
         return f'-{column}'
     return column
 
 
-def sort_indicator(sort_key, sort_dir, column):
+def sort_indicator(column, current_key, current_dir):
     """Return a sort indicator string for display in column headers.
     
     Args:
-        sort_key: Current sort key
-        sort_dir: Current sort direction
         column: The column to check
+        current_key: Current sort key
+        current_dir: Current sort direction
     
     Returns:
         ' ▲' if ascending, ' ▼' if descending, '' if not sorted
     """
-    if sort_key != column:
+    if current_key != column:
         return ''
-    if sort_dir == DESC:
+    if current_dir == DESC:
         return ' ▼'
     return ' ▲'
