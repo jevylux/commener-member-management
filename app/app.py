@@ -3054,6 +3054,29 @@ def generate_quarterly_bills():
                         total_amount += month_amount
                         total_kwh += kwh
                     
+                    # Check if member fee is unpaid for this year
+                    member_fee_amount = 0.0
+                    member_fee_unpaid = False
+                    
+                    # Find member fee for this year
+                    member_fee = MemberFee.query.filter_by(mfYear=year).first()
+                    if member_fee:
+                        # Check if member has paid
+                        payment = MemberFeePayment.query.filter_by(
+                            memberID=member.id,
+                            memberFeeID=member_fee.mfID
+                        ).first()
+                        
+                        if not payment or payment.paymentStatus != 'paid':
+                            member_fee_amount = float(member_fee.mfamount)
+                            member_fee_unpaid = True
+                    
+                    # Add member fee line if unpaid
+                    if member_fee_unpaid:
+                        writer.writerow([])  # Empty row
+                        writer.writerow([f'Member fee {year}', '', '', f'{round(member_fee_amount, 2)} EUR'])
+                        total_amount += member_fee_amount
+                    
                     # Add total row
                     writer.writerow([])  # Empty row
                     writer.writerow(['Total', f"{round(total_kwh, 2)} kWh", '', f"{round(total_amount, 2)} EUR"])
