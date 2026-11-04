@@ -1,4 +1,5 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %} {% from "_sortable_header.html" import sortable_head %} {% block
+content %}
 <h1>Pod Sharing Groups</h1>
 <a href="{{ url_for('create_pod_sharing_group') }}" class="btn btn-primary mb-3"
   >Add Pod to existing SharingGroup</a
@@ -6,8 +7,9 @@
 <table class="table table-striped">
   <thead>
     <tr>
-      <th>ID</th>
-      <th>Pod</th>
+      {{ sortable_head('list_pod_sharing_groups', 'id', 'ID', sort_key, sort_dir, sort_target, sort_indicator) }}
+      {{ sortable_head('list_pod_sharing_groups', 'pod', 'Pod', sort_key, sort_dir, sort_target, sort_indicator) }}
+      {{ sortable_head('list_pod_sharing_groups', 'name', 'Owner', sort_key, sort_dir, sort_target, sort_indicator) }}
       <th>Sharing Group</th>
       <th>Actions</th>
     </tr>
@@ -17,6 +19,7 @@
     <tr>
       <td>{{ pod_sharing_group.msgID }}</td>
       <td>{{ pod_sharing_group.pod.podlabel }}</td>
+      <td>{{ pod_sharing_group.pod.member.name }} {{ pod_sharing_group.pod.member.firstname }}</td>
       <td>{{ pod_sharing_group.sharing_group.sgName }}</td>
       <td>
         <a

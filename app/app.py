@@ -673,13 +673,62 @@ def delete_sharing_group(id):
 # Routes for Pod Sharing Groups
 @app.route('/pod_sharing_groups')
 def list_pod_sharing_groups():
-    pod_sharing_groups = PodSharingGroup.query.all()
-    return render_template('pod_sharing_groups/list.html', pod_sharing_groups=pod_sharing_groups)
+    sort_param = request.args.get('sort', 'id')
+    sort_key, sort_dir = parse_sort(sort_param, ('id', 'pod', 'name'))
+    
+    # Get all pod sharing groups with pod and member info
+    psg_list = PodSharingGroup.query.all()
+    
+    # Prepare sortable items
+    psg_items = []
+    for psg in psg_list:
+        member = psg.pod.member
+        owner_name = f"{member.name} {member.firstname}".strip() if member else ""
+        psg_items.append({
+            'msgID': psg.msgID,
+            'pod': psg.pod,
+            'pod_label': psg.pod.podlabel or "",
+            'owner_name': owner_name,
+            'sharing_group': psg.sharing_group
+        })
+    
+    # Sort
+    key_map = {
+        'id': lambda x: (False, x['msgID']),
+        'pod': lambda x: (x['pod_label'] is None, normalise(x['pod_label'])),
+        'name': lambda x: (x['owner_name'] is None, normalise(x['owner_name'])),
+    }
+    psg_items = sort_rows(psg_items, sort_key, sort_dir, key_map)
+    
+    return render_template(
+        'pod_sharing_groups/list.html',
+        pod_sharing_groups=psg_items,
+        sort_key=sort_key,
+        sort_dir=sort_dir,
+        sort_target=sort_target,
+        sort_indicator=sort_indicator,
+    )
 
 @app.route('/pod_sharing_groups/new', methods=['GET', 'POST'])
 def create_pod_sharing_group():
     form = PodSharingGroupForm()
-    form.podID.choices = [(p.podsID, p.podlabel) for p in Pod.query.all()]
+    # Get all pods with member info, sorted by member name
+    pods = db.session.query(Pod, Member).join(Member, Pod.memberID == Member.id).order_by(Member.name, Member.firstname).all()
+    
+    # Build choices with pod label + owner name, and show existing sharing group
+    pod_choices = []
+    for pod, member in pods:
+        owner_name = f"{member.name} {member.firstname}".strip()
+        # Check if pod already belongs to sharing groups
+        existing_groups = PodSharingGroup.query.filter_by(podID=pod.podsID).all()
+        if existing_groups:
+            group_names = ', '.join([psg.sharing_group.sgName for psg in existing_groups])
+            label = f"{pod.podlabel} - {owner_name} (in: {group_names})"
+        else:
+            label = f"{pod.podlabel} - {owner_name}"
+        pod_choices.append((pod.podsID, label))
+    
+    form.podID.choices = pod_choices
     form.sharingGroupID.choices = [(sg.sgID, sg.sgName) for sg in SharingGroup.query.all()]
     if form.validate_on_submit():
         pod_sharing_group = PodSharingGroup(
@@ -707,7 +756,23 @@ def detail_pod_sharing_group(id):
 def update_pod_sharing_group(id):
     pod_sharing_group = PodSharingGroup.query.get_or_404(id)
     form = PodSharingGroupForm(obj=pod_sharing_group)
-    form.podID.choices = [(p.podsID, p.podlabel) for p in Pod.query.all()]
+    # Get all pods with member info, sorted by member name
+    pods = db.session.query(Pod, Member).join(Member, Pod.memberID == Member.id).order_by(Member.name, Member.firstname).all()
+    
+    # Build choices with pod label + owner name, and show existing sharing group
+    pod_choices = []
+    for pod, member in pods:
+        owner_name = f"{member.name} {member.firstname}".strip()
+        # Check if pod already belongs to sharing groups
+        existing_groups = PodSharingGroup.query.filter_by(podID=pod.podsID).all()
+        if existing_groups:
+            group_names = ', '.join([psg.sharing_group.sgName for psg in existing_groups])
+            label = f"{pod.podlabel} - {owner_name} (in: {group_names})"
+        else:
+            label = f"{pod.podlabel} - {owner_name}"
+        pod_choices.append((pod.podsID, label))
+    
+    form.podID.choices = pod_choices
     form.sharingGroupID.choices = [(sg.sgID, sg.sgName) for sg in SharingGroup.query.all()]
     if form.validate_on_submit():
         pod_sharing_group.podID = form.podID.data
