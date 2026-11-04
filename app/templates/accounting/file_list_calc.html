@@ -1,0 +1,45 @@
+{% extends "base.html" %} {% block content %}
+<div class="container">
+  <h1>📁 Available Downloads</h1>
+  <a href="{{ url_for('list_calculated_files') }}" class="btn btn-warning"
+    >Accounting</a
+  >
+  {% if error %}
+  <div class="error">{{ error }}</div>
+  {% endif %} {% if files %}
+  <table class="file-table">
+    <thead>
+      <tr>
+        <th>File Name</th>
+        <th>Size</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for file in files %}
+      <tr>
+        <td>
+          <strong>{{ file.name }}</strong>
+        </td>
+        <td class="file-size">
+          {% if file.size < 1024 %} {{ file.size }} B {% elif file.size <
+          1048576 %} {{ "%.1f"|format(file.size / 1024) }} KB {% else %} {{
+          "%.1f"|format(file.size / 1048576) }} MB {% endif %}
+        </td>
+        <td>
+          <a
+            href="{{ url_for('download_file_calc', filename=file.name) }}"
+            class="download-btn"
+          >
+            ⬇️ Download
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="no-files">No files available for download</div>
+  {% endif %}
+</div>
+{% endblock %}

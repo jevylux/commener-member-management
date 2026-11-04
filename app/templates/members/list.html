@@ -1,4 +1,5 @@
-{% extends "base.html" %} {% block content %}
+{% extends "base.html" %} {% from "_sortable_header.html" import sortable_head %} {% block
+content %}
 <h1>Members</h1>
 <a href="{{ url_for('create_member') }}" class="btn btn-primary mb-3"
   >Create New Member</a
@@ -6,10 +7,11 @@
 <table class="table table-striped">
   <thead>
     <tr>
-      <th>ID</th>
-      <th>Name</th>
-      <th>Firstname</th>
-      <th>Email</th>
+      {{ sortable_head('list_members', 'id', 'ID', sort_key, sort_dir, sort_target, sort_indicator) }}
+      {{ sortable_head('list_members', 'name', 'Name', sort_key, sort_dir, sort_target, sort_indicator) }}
+      {{ sortable_head('list_members', 'firstname', 'Firstname', sort_key, sort_dir, sort_target, sort_indicator) }}
+      {{ sortable_head('list_members', 'email', 'Email', sort_key, sort_dir, sort_target, sort_indicator) }}
+      {{ sortable_head('list_members', 'payment', 'Payment Method', sort_key, sort_dir, sort_target, sort_indicator) }}
       <th>Actions</th>
     </tr>
   </thead>
@@ -20,6 +22,7 @@
       <td>{{ member.name }}</td>
       <td>{{ member.firstname }}</td>
       <td>{{ member.email }}</td>
+      <td>{{ member.payment }}</td>
       <td>
         <a
           href="{{ url_for('detail_member', id=member.id) }}"

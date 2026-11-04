@@ -13,7 +13,10 @@
     </p>
     <p class="card-text"><strong>Email:</strong> {{ member.email }}</p>
     <p class="card-text"><strong>Energy ID:</strong> {{ member.energyID }}</p>
-
+    <p class="card-text"><strong>Energy ID Name:</strong> {{ member.energyIDName }}</p>
+    <p class="card-text"><strong>Payment Method:</strong> {{ member.payment }}</p>
+    <p class="card-text"><strong>Bank Account:</strong> {{ member.BankAccount }}</p>
+    <p class="card-text"><strong>Payconiq:</strong> {{ member.Payconiq }}</p>
     <h6 class="mt-4">Pods</h6>
     {% if member.pods %}
     <table class="table table-striped">
@@ -96,6 +99,11 @@
       href="{{ url_for('update_member', id=member.id) }}"
       class="btn btn-warning mt-3"
       >Edit</a
+    >
+    <a
+      href="{{ url_for('leneda_access_form', member_id=member.id) }}"
+      class="btn btn-info mt-3"
+      >Leneda Access</a
     >
     <form
       action="{{ url_for('delete_member', id=member.id) }}"

@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('list_members') }}">Members</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('update_member', id=member.id) }}">{{ member.firstname }} {{ member.name }}</a></li>
+                    <li class="breadcrumb-item active">Leneda Access Request</li>
+                </ol>
+            </nav>
+            
+            <h1 class="mb-4">📊 Leneda Metering Data Access Request</h1>
+        </div>
+    </div>
+
+    <!-- Member Info Card -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">👤 Member Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Name:</strong> {{ member.firstname }} {{ member.name }}</p>
+                            <p><strong>Energy ID:</strong> 
+                                {% if member.energyID %}
+                                    <span class="badge bg-success">{{ member.energyID }}</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Not configured</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Energy ID Name:</strong> {{ member.energyIDName or 'Not set' }}</p>
+                            <p><strong>Total Pods:</strong> <span class="badge bg-info">{{ pods|length }}</span></p>
+                        </div>
+                    </div>
+                    
+                    {% if not has_energy_id %}
+                    <div class="alert alert-danger mt-3">
+                        <strong>⚠️ Warning:</strong> This member does not have an Energy ID configured. 
+                        Please <a href="{{ url_for('edit_members', member_id=member.id) }}">update the member profile</a> before requesting access.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pods Information -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">🔗 Metering Points (Pods)</h5>
+                </div>
+                <div class="card-body">
+                    {% if pods %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Label</th>
+                                        <th>Type</th>
+                                        <th>Metering Point Code</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for pod in pods %}
+                                    <tr>
+                                        <td>{{ pod.podlabel }}</td>
+                                        <td>
+                                            {% if pod.podType == 'Production' %}
+                                                <span class="badge bg-success">Production</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">Consumption</span>
+                                            {% endif %}
+                                        </td>
+                                        <td><code>{{ pod.podNumber }}</code></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-muted small">These metering point codes will be included in the access request.</p>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <strong>No pods found!</strong> This member has no pods with metering point numbers configured.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OBIS Code Selection Form -->
+    {% if has_energy_id and pods %}
+    <div class="row">
+        <div class="col">
+            <form method="POST" action="{{ url_for('leneda_access_submit', member_id=member.id) }}">
+                <div class="card">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">📋 Select OBIS Codes</h5>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-light" onclick="selectAll()">Select All</button>
+                            <button type="button" class="btn btn-sm btn-outline-light" onclick="deselectAll()">Deselect All</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        
+                        {% if obis_codes.consumption %}
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2">
+                                📥 For Consumption Pods 
+                                <span class="badge bg-warning">{{ consumption_pods|length }} pod(s)</span>
+                            </h6>
+                            <div class="row">
+                                {% for key, code_info in obis_codes.consumption.items() %}
+                                <div class="col-md-6 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input obis-checkbox" type="checkbox" 
+                                               name="obis_codes" value="{{ code_info.code }}" 
+                                               id="obis_{{ key }}"
+                                               {% if code_info.code.startswith('1-1:1.') or code_info.code.startswith('1-1:2.') %}checked{% endif %}>
+                                        <label class="form-check-label" for="obis_{{ key }}">
+                                            <code>{{ code_info.code }}</code>
+                                            <small class="text-muted">({{ code_info.unit }})</small><br>
+                                            <small>{{ code_info.description }}</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if obis_codes.production %}
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2">
+                                📤 For Production Pods
+                                <span class="badge bg-success">{{ production_pods|length }} pod(s)</span>
+                            </h6>
+                            <div class="row">
+                                {% for key, code_info in obis_codes.production.items() %}
+                                <div class="col-md-6 mb-2">
+                                    <div class="form-check">
+                                        <input class="form-check-input obis-checkbox" type="checkbox" 
+                                               name="obis_codes" value="{{ code_info.code }}" 
+                                               id="obis_{{ key }}"
+                                               {% if code_info.code.startswith('1-1:1.') or code_info.code.startswith('1-1:2.') %}checked{% endif %}>
+                                        <label class="form-check-label" for="obis_{{ key }}">
+                                            <code>{{ code_info.code }}</code>
+                                            <small class="text-muted">({{ code_info.unit }})</small><br>
+                                            <small>{{ code_info.description }}</small>
+                                        </label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <div class="alert alert-info">
+                            <strong>ℹ️ Note:</strong> The access request will be sent to Leneda for the member's Energy ID 
+                            <code>{{ member.energyID }}</code>. You'll need to approve this request in the Leneda portal.
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            🚀 Send Access Request to Leneda
+                        </button>
+                        <a href="{{ url_for('update_member', id=member.id) }}" class="btn btn-secondary btn-lg">
+                            Cancel
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function selectAll() {
+    document.querySelectorAll('.obis-checkbox').forEach(cb => cb.checked = true);
+}
+
+function deselectAll() {
+    document.querySelectorAll('.obis-checkbox').forEach(cb => cb.checked = false);
+}
+</script>
+{% endblock %}
