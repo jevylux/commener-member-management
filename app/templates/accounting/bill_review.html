@@ -66,11 +66,78 @@
   </div>
 </div>
 
+<!-- Email Sending Progress Panel (hidden by default) -->
+<div id="emailProgressPanel" class="card mb-4" style="display: none;">
+  <div class="card-body">
+    <h5 class="card-title">
+      <i class="bi bi-envelope-paper"></i> 
+      <span id="progressTitle">Sending emails...</span>
+      <span id="progressBadge" class="badge bg-warning text-dark ms-2">TEST MODE</span>
+    </h5>
+    <div class="progress mb-3" style="height: 30px">
+      <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+           role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+        0%
+      </div>
+    </div>
+    <div class="row text-center">
+      <div class="col-md-3">
+        <h6 class="text-muted">Total</h6>
+        <p id="progressTotal" class="fs-4 fw-bold">0</p>
+      </div>
+      <div class="col-md-3">
+        <h6 class="text-muted">Sent</h6>
+        <p id="progressSent" class="fs-4 fw-bold text-success">0</p>
+      </div>
+      <div class="col-md-3">
+        <h6 class="text-muted">Failed</h6>
+        <p id="progressFailed" class="fs-4 fw-bold text-danger">0</p>
+      </div>
+      <div class="col-md-3">
+        <h6 class="text-muted">Pending</h6>
+        <p id="progressPending" class="fs-4 fw-bold text-warning">0</p>
+      </div>
+    </div>
+    <div id="progressCurrent" class="text-muted small mb-2"></div>
+    <div class="d-flex gap-2">
+      <button id="btnCancelQueue" class="btn btn-outline-danger btn-sm" onclick="cancelQueue()">
+        <i class="bi bi-x-circle"></i> Cancel
+      </button>
+      <button id="btnCloseProgress" class="btn btn-outline-secondary btn-sm" onclick="closeProgressPanel()" style="display: none;">
+        <i class="bi bi-x-lg"></i> Close
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Email Results Panel (shown after completion) -->
+<div id="emailResultsPanel" class="card mb-4" style="display: none;">
+  <div class="card-body">
+    <h5 class="card-title">
+      <i class="bi bi-envelope-check"></i> Email Sending Results
+    </h5>
+    <div id="resultsSummary" class="alert alert-info"></div>
+    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+      <table class="table table-sm table-hover" id="resultsTable">
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Status</th>
+            <th>Message</th>
+          </tr>
+        </thead>
+        <tbody id="resultsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- Bills Form -->
 <form
   id="sendBillsForm"
   method="POST"
   action="/accounting/bills/{{ folder }}/send"
+  onsubmit="return startEmailQueue(event);"
 >
   <input type="hidden" name="send_all" id="sendAllField" value="false" />
 
@@ -281,6 +348,170 @@
         }
       }
     }
+  }
+
+  // Email Queue System
+  var pollInterval = null;
+  var folderName = "{{ folder }}";
+
+  function startEmailQueue(event) {
+    event.preventDefault();
+    
+    var form = document.getElementById("sendBillsForm");
+    var formData = new FormData(form);
+    
+    // Show progress panel
+    document.getElementById("emailProgressPanel").style.display = "block";
+    document.getElementById("emailResultsPanel").style.display = "none";
+    document.getElementById("btnCloseProgress").style.display = "none";
+    document.getElementById("btnCancelQueue").style.display = "inline-block";
+    
+    // Update badge based on mode
+    var isLive = document.getElementById("sendMode").checked;
+    var badge = document.getElementById("progressBadge");
+    if (isLive) {
+      badge.className = "badge bg-danger ms-2";
+      badge.textContent = "LIVE MODE";
+    } else {
+      badge.className = "badge bg-warning text-dark ms-2";
+      badge.textContent = "TEST MODE";
+    }
+    
+    // Disable form buttons
+    document.getElementById("btnSendSelected").disabled = true;
+    document.getElementById("btnSendAll").disabled = true;
+    
+    // Submit via AJAX
+    fetch("/accounting/bills/" + folderName + "/send-queue", {
+      method: "POST",
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        document.getElementById("progressTotal").textContent = data.total;
+        startPolling();
+      } else {
+        alert("Error: " + data.error);
+        resetUI();
+      }
+    })
+    .catch(error => {
+      console.error("Error:", error);
+      alert("Failed to start email queue");
+      resetUI();
+    });
+    
+    return false;
+  }
+
+  function startPolling() {
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(checkProgress, 2000); // Poll every 2 seconds
+  }
+
+  function checkProgress() {
+    fetch("/accounting/bills/" + folderName + "/progress")
+      .then(response => response.json())
+      .then(data => {
+        if (data.success && data.progress) {
+          updateProgressUI(data.progress);
+          
+          if (data.progress.status === "completed" || data.progress.status === "cancelled") {
+            clearInterval(pollInterval);
+            showResults(data.progress);
+          }
+        }
+      })
+      .catch(error => console.error("Poll error:", error));
+  }
+
+  function updateProgressUI(progress) {
+    var percent = progress.percent || 0;
+    var bar = document.getElementById("progressBar");
+    bar.style.width = percent + "%";
+    bar.textContent = percent + "%";
+    bar.setAttribute("aria-valuenow", percent);
+    
+    document.getElementById("progressSent").textContent = progress.sent || 0;
+    document.getElementById("progressFailed").textContent = progress.failed || 0;
+    document.getElementById("progressPending").textContent = progress.pending || 0;
+    
+    if (progress.current) {
+      document.getElementById("progressCurrent").textContent = 
+        "Sending to member ID: " + progress.current;
+    }
+  }
+
+  function showResults(progress) {
+    document.getElementById("btnCancelQueue").style.display = "none";
+    document.getElementById("btnCloseProgress").style.display = "inline-block";
+    document.getElementById("progressTitle").textContent = "Sending complete!";
+    document.getElementById("progressBar").classList.remove("progress-bar-animated");
+    
+    // Show results panel
+    document.getElementById("emailResultsPanel").style.display = "block";
+    
+    var summary = "Sent: " + (progress.sent || 0) + 
+                  " | Failed: " + (progress.failed || 0) + 
+                  " | Total: " + (progress.total || 0);
+    document.getElementById("resultsSummary").textContent = summary;
+    
+    // Load detailed results
+    loadDetailedResults();
+    
+    // Re-enable buttons
+    document.getElementById("btnSendSelected").disabled = false;
+    document.getElementById("btnSendAll").disabled = false;
+  }
+
+  function loadDetailedResults() {
+    fetch("/accounting/bills/" + folderName + "/progress")
+      .then(response => response.json())
+      .then(data => {
+        if (data.success && data.progress && data.progress.items) {
+          var tbody = document.getElementById("resultsTableBody");
+          tbody.innerHTML = "";
+          
+          data.progress.items.forEach(function(item) {
+            var row = document.createElement("tr");
+            var statusClass = item.status === "sent" ? "text-success" : 
+                             (item.status === "failed" ? "text-danger" : "text-muted");
+            var statusIcon = item.status === "sent" ? "✓" : 
+                            (item.status === "failed" ? "✗" : "○");
+            
+            row.innerHTML = 
+              '<td>' + (item.member_name || "Member " + item.member_id) + '</td>' +
+              '<td class="' + statusClass + '">' + statusIcon + " " + item.status + '</td>' +
+              '<td>' + (item.error || "") + '</td>';
+            tbody.appendChild(row);
+          });
+        }
+      });
+  }
+
+  function cancelQueue() {
+    if (!confirm("Cancel email sending?")) return;
+    
+    fetch("/accounting/bills/" + folderName + "/cancel-queue", {method: "POST"})
+      .then(() => {
+        clearInterval(pollInterval);
+        document.getElementById("progressTitle").textContent = "Cancelled";
+        resetUI();
+      });
+  }
+
+  function closeProgressPanel() {
+    document.getElementById("emailProgressPanel").style.display = "none";
+    document.getElementById("emailResultsPanel").style.display = "none";
+    // Refresh page to update status
+    window.location.reload();
+  }
+
+  function resetUI() {
+    document.getElementById("btnSendSelected").disabled = false;
+    document.getElementById("btnSendAll").disabled = false;
+    document.getElementById("emailProgressPanel").style.display = "none";
   }
 
   // Initialize on page load

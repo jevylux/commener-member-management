@@ -2415,6 +2415,370 @@ def save_bill_email_status(folder_name, status):
         return False
 
 
+# ==============================================================================
+# EMAIL QUEUE SYSTEM - Background processing for bulk bill emails
+# ==============================================================================
+
+import threading
+import queue
+
+# Global queue for email jobs
+_email_worker_thread = None
+_email_worker_lock = threading.Lock()
+
+
+def get_email_queue_file_path(folder_name):
+    """Get path to the email queue JSON file."""
+    folder_path = get_bill_folder_path(folder_name)
+    return os.path.join(folder_path, '_email_queue.json')
+
+
+def get_email_progress_file_path(folder_name):
+    """Get path to the email progress JSON file."""
+    folder_path = get_bill_folder_path(folder_name)
+    return os.path.join(folder_path, '_email_progress.json')
+
+
+def create_email_queue(folder_name, bill_items, test_mode=False):
+    """Create an email queue file for background processing.
+    
+    Args:
+        folder_name: The bill folder name
+        bill_items: List of dicts with member_id, filename, filepath
+        test_mode: Whether this is test mode
+    
+    Returns:
+        Dict with queue info
+    """
+    queue_data = {
+        'folder': folder_name,
+        'created_at': datetime.now().isoformat(),
+        'test_mode': test_mode,
+        'total': len(bill_items),
+        'sent': 0,
+        'failed': 0,
+        'pending': len(bill_items),
+        'status': 'queued',  # queued, running, completed, cancelled
+        'items': []
+    }
+    
+    for item in bill_items:
+        queue_data['items'].append({
+            'member_id': item['member_id'],
+            'filename': item['filename'],
+            'filepath': item['filepath'],
+            'status': 'pending',  # pending, sending, sent, failed
+            'sent_at': None,
+            'error': None
+        })
+    
+    queue_file = get_email_queue_file_path(folder_name)
+    with open(queue_file, 'w') as f:
+        json.dump(queue_data, f, indent=2)
+    
+    # Also create initial progress file
+    progress_file = get_email_progress_file_path(folder_name)
+    with open(progress_file, 'w') as f:
+        json.dump({
+            'folder': folder_name,
+            'status': 'queued',
+            'total': len(bill_items),
+            'sent': 0,
+            'failed': 0,
+            'pending': len(bill_items),
+            'current': None,
+            'percent': 0,
+            'updated_at': datetime.now().isoformat()
+        }, f, indent=2)
+    
+    return queue_data
+
+
+def load_email_queue(folder_name):
+    """Load email queue data."""
+    queue_file = get_email_queue_file_path(folder_name)
+    if os.path.exists(queue_file):
+        try:
+            with open(queue_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading email queue: {e}")
+    return None
+
+
+def load_email_progress(folder_name):
+    """Load email progress data."""
+    progress_file = get_email_progress_file_path(folder_name)
+    if os.path.exists(progress_file):
+        try:
+            with open(progress_file, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading email progress: {e}")
+    return None
+
+
+def save_email_progress(folder_name, progress):
+    """Save email progress data."""
+    progress_file = get_email_progress_file_path(folder_name)
+    progress['updated_at'] = datetime.now().isoformat()
+    with open(progress_file, 'w') as f:
+        json.dump(progress, f, indent=2)
+
+
+def update_queue_item_status(folder_name, member_id, status, error=None):
+    """Update the status of a specific item in the queue."""
+    queue_data = load_email_queue(folder_name)
+    if not queue_data:
+        return
+    
+    for item in queue_data['items']:
+        if item['member_id'] == member_id:
+            item['status'] = status
+            if status == 'sent':
+                item['sent_at'] = datetime.now().isoformat()
+            if error:
+                item['error'] = error
+            break
+    
+    # Recalculate counts
+    queue_data['sent'] = sum(1 for i in queue_data['items'] if i['status'] == 'sent')
+    queue_data['failed'] = sum(1 for i in queue_data['items'] if i['status'] == 'failed')
+    queue_data['pending'] = sum(1 for i in queue_data['items'] if i['status'] == 'pending')
+    
+    # Save updated queue
+    queue_file = get_email_queue_file_path(folder_name)
+    with open(queue_file, 'w') as f:
+        json.dump(queue_data, f, indent=2)
+    
+    # Update progress
+    total = queue_data['total']
+    done = queue_data['sent'] + queue_data['failed']
+    percent = int((done / total * 100)) if total > 0 else 0
+    
+    progress = {
+        'folder': folder_name,
+        'status': 'running' if queue_data['pending'] > 0 else 'completed',
+        'total': total,
+        'sent': queue_data['sent'],
+        'failed': queue_data['failed'],
+        'pending': queue_data['pending'],
+        'current': member_id if status == 'sending' else None,
+        'percent': percent,
+        'updated_at': datetime.now().isoformat()
+    }
+    save_email_progress(folder_name, progress)
+
+
+def _email_worker(folder_name):
+    """Background worker that processes the email queue."""
+    print(f"[EmailWorker] Starting background processing for {folder_name}")
+    
+    queue_data = load_email_queue(folder_name)
+    if not queue_data:
+        print(f"[EmailWorker] No queue found for {folder_name}")
+        return
+    
+    queue_data['status'] = 'running'
+    queue_file = get_email_queue_file_path(folder_name)
+    with open(queue_file, 'w') as f:
+        json.dump(queue_data, f, indent=2)
+    
+    # Parse year and quarter from folder name
+    folder_parts = folder_name.replace('_bills_', '').split('-')
+    year = folder_parts[0] if len(folder_parts) > 0 else str(datetime.now().year)
+    quarter = folder_parts[1].replace('Q', '') if len(folder_parts) > 1 and folder_parts[1].startswith('Q') else '1'
+    
+    test_mode = queue_data.get('test_mode', False)
+    
+    for item in queue_data['items']:
+        if item['status'] != 'pending':
+            continue
+        
+        member_id = item['member_id']
+        filepath = item['filepath']
+        
+        # Update status to sending
+        update_queue_item_status(folder_name, member_id, 'sending')
+        
+        try:
+            member = Member.query.get(member_id)
+            if not member:
+                update_queue_item_status(folder_name, member_id, 'failed', 'Member not found')
+                continue
+            
+            # Send the email
+            success, message, was_test = send_bill_email(
+                member_email=member.email,
+                member_name=f"{member.firstname} {member.name}".strip(),
+                bill_path=filepath,
+                year=year,
+                quarter=quarter,
+                is_resend=False,
+                test_mode=test_mode
+            )
+            
+            if success:
+                update_queue_item_status(folder_name, member_id, 'sent')
+                print(f"[EmailWorker] Sent to {member.firstname} {member.name}: {message}")
+            else:
+                update_queue_item_status(folder_name, member_id, 'failed', message)
+                print(f"[EmailWorker] Failed for {member.firstname} {member.name}: {message}")
+            
+            # Small delay to avoid overwhelming SMTP server
+            time.sleep(2)
+            
+        except Exception as e:
+            update_queue_item_status(folder_name, member_id, 'failed', str(e))
+            print(f"[EmailWorker] Exception for member {member_id}: {e}")
+            time.sleep(2)
+    
+    # Mark queue as completed
+    queue_data = load_email_queue(folder_name)
+    if queue_data:
+        queue_data['status'] = 'completed'
+        with open(queue_file, 'w') as f:
+            json.dump(queue_data, f, indent=2)
+        
+        progress = load_email_progress(folder_name)
+        if progress:
+            progress['status'] = 'completed'
+            progress['percent'] = 100
+            save_email_progress(folder_name, progress)
+    
+    print(f"[EmailWorker] Completed processing for {folder_name}")
+
+
+def start_email_worker(folder_name):
+    """Start the background email worker thread."""
+    global _email_worker_thread
+    
+    with _email_worker_lock:
+        # Check if a worker is already running for this folder
+        if _email_worker_thread and _email_worker_thread.is_alive():
+            print(f"[EmailWorker] Worker already running for {folder_name}")
+            return False
+        
+        _email_worker_thread = threading.Thread(
+            target=_email_worker,
+            args=(folder_name,),
+            daemon=True,
+            name=f"EmailWorker-{folder_name}"
+        )
+        _email_worker_thread.start()
+        print(f"[EmailWorker] Started thread for {folder_name}")
+        return True
+
+
+@app.route('/accounting/bills/<folder>/send-queue', methods=['POST'])
+def queue_bills_for_sending(folder):
+    """POST endpoint to create email queue and start background processing.
+    
+    This replaces the old synchronous send_bills endpoint.
+    """
+    try:
+        # Get parameters
+        member_ids = request.form.getlist('selected_bills')
+        send_all = request.form.get('send_all') == 'true'
+        send_mode = request.form.get('send_mode', 'test')
+        is_test_mode = (send_mode != 'live')
+        
+        folder_path = get_bill_folder_path(folder)
+        if not os.path.exists(folder_path):
+            return jsonify({'success': False, 'error': 'Folder not found'}), 404
+        
+        # Build list of bills to send
+        bill_items = []
+        for filename in os.listdir(folder_path):
+            if not filename.startswith('_') and filename.endswith('.csv'):
+                parts = filename.replace('.csv', '').split('_')
+                member_id = None
+                for part in reversed(parts):
+                    if part.isdigit():
+                        member_id = int(part)
+                        break
+                
+                if member_id and (send_all or str(member_id) in member_ids):
+                    # Check if already sent (unless resend)
+                    status = load_bill_email_status(folder)
+                    if not send_all and status.get(str(member_id), {}).get('status') == 'sent':
+                        continue
+                    
+                    bill_items.append({
+                        'member_id': member_id,
+                        'filename': filename,
+                        'filepath': os.path.join(folder_path, filename)
+                    })
+        
+        if not bill_items:
+            return jsonify({'success': False, 'error': 'No bills to send'}), 400
+        
+        # Create queue
+        queue_data = create_email_queue(folder, bill_items, test_mode=is_test_mode)
+        
+        # Start background worker
+        started = start_email_worker(folder)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Queue created with {len(bill_items)} bills. Background processing started.',
+            'folder': folder,
+            'total': len(bill_items),
+            'test_mode': is_test_mode,
+            'worker_started': started
+        })
+        
+    except Exception as e:
+        import traceback
+        print(f"ERROR in queue_bills_for_sending: {e}")
+        print(traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/accounting/bills/<folder>/progress', methods=['GET'])
+def get_email_progress(folder):
+    """GET endpoint to check email sending progress."""
+    try:
+        progress = load_email_progress(folder)
+        if not progress:
+            return jsonify({'success': False, 'error': 'No progress found'}), 404
+        
+        # Also load queue to get detailed item status
+        queue_data = load_email_queue(folder)
+        if queue_data:
+            progress['items'] = queue_data.get('items', [])
+        
+        return jsonify({
+            'success': True,
+            'progress': progress
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/accounting/bills/<folder>/cancel-queue', methods=['POST'])
+def cancel_email_queue(folder):
+    """POST endpoint to cancel the email queue."""
+    try:
+        queue_data = load_email_queue(folder)
+        if queue_data:
+            queue_data['status'] = 'cancelled'
+            queue_file = get_email_queue_file_path(folder)
+            with open(queue_file, 'w') as f:
+                json.dump(queue_data, f, indent=2)
+        
+        progress = load_email_progress(folder)
+        if progress:
+            progress['status'] = 'cancelled'
+            save_email_progress(folder, progress)
+        
+        return jsonify({'success': True, 'message': 'Queue cancelled'})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/accounting/bills/list')
 def list_bill_folders():
     """List all generated bill folders."""
@@ -2795,251 +3159,16 @@ def review_bills(folder):
 def send_bills(folder):
     """
     POST endpoint to send bills via email.
-    Handles both single bill and bulk sending.
-    Supports TEST mode where emails only go to BCC.
+    Now delegates to background queue system.
     """
     try:
-        import json
-        from flask import request, jsonify
-        
-        # Check if this is an AJAX/JSON request
-        if request.is_json:
-            data = request.get_json()
-            member_ids = data.get('member_ids', [])
-            is_resend = data.get('is_resend', False)
-        else:
-            # Form data from checkboxes
-            member_ids = request.form.getlist('selected_bills')
-            is_resend = request.form.get('send_all') == 'true'
-        
-        # Check send mode (test vs live)
-        send_mode = request.form.get('send_mode', 'test')
-        is_test_mode = (send_mode != 'live')
-        
-        if is_test_mode:
-            print(f"DEBUG: Running in TEST MODE - emails will only go to BCC")
-        else:
-            print(f"DEBUG: Running in LIVE MODE - emails will be sent to recipients")
-        
-        folder_path = get_bill_folder_path(folder)
-        if not os.path.exists(folder_path):
-            return jsonify({'success': False, 'error': 'Folder not found'}), 404
-        
-        email_status = load_bill_email_status(folder)
-        results = []
-        sent_count = 0
-        failed_count = 0
-        
-        # Get all bills in the folder
-        bills = []
-        for filename in os.listdir(folder_path):
-            if not filename.startswith('_') and filename.endswith('.csv'):
-                # Extract member_id from filename (e.g., Bill_2026_Q1_Colin_Zandstra_48.csv)
-                parts = filename.replace('.csv', '').split('_')
-                member_id = None
-                for part in reversed(parts):
-                    if part.isdigit():
-                        member_id = int(part)
-                        break
-                
-                if member_id and (not member_ids or str(member_id) in member_ids):
-                    bills.append({
-                        'filename': filename,
-                        'member_id': member_id,
-                        'filepath': os.path.join(folder_path, filename)
-                    })
-        
-        for bill in bills:
-            member = Member.query.get(bill['member_id'])
-            if not member:
-                results.append({
-                    'member_id': bill['member_id'],
-                    'member_name': 'Unknown',
-                    'success': False,
-                    'message': 'Member not found'
-                })
-                failed_count += 1
-                continue
-            
-            try:
-                # Parse year and quarter from folder name
-                folder_parts = folder.replace('_bills_', '').split('-')
-                year = folder_parts[0] if len(folder_parts) > 0 else datetime.now().year
-                quarter = folder_parts[1].replace('Q', '') if len(folder_parts) > 1 and folder_parts[1].startswith('Q') else '1'
-                
-                # Send the email
-                success, message, was_test = send_bill_email(
-                    member_email=member.email,
-                    member_name=f"{member.firstname} {member.name}".strip(),
-                    bill_path=bill['filepath'],
-                    year=year,
-                    quarter=quarter,
-                    is_resend=is_resend,
-                    test_mode=is_test_mode
-                )
-                
-                # In test mode, don't update status as "sent" - it was only a test
-                if success and was_test:
-                    results.append({
-                        'member_id': bill['member_id'],
-                        'member_name': f"{member.firstname} {member.name}",
-                        'success': True,
-                        'message': message,
-                        'is_test': True
-                    })
-                    sent_count += 1
-                    # write in a file
-                    time.sleep(2)
-                    continue  # Skip the normal status update
-                
-                if success:
-                    email_status[str(bill['member_id'])] = {
-                        'status': 'sent',
-                        'sent_at': datetime.now().isoformat(),
-                        'error': None,
-                        'attempts': email_status.get(str(bill['member_id']), {}).get('attempts', 0) + 1
-                    }
-                    
-                    results.append({
-                        'member_id': bill['member_id'],
-                        'member_name': f"{member.firstname} {member.name}",
-                        'success': True,
-                        'message': message
-                    })
-                    sent_count += 1
-                
-                else:
-                    email_status[str(bill['member_id'])] = {
-                        'status': 'failed',
-                        'sent_at': None,
-                        'error': message,
-                        'attempts': email_status.get(str(bill['member_id']), {}).get('attempts', 0) + 1
-                    }
-                    results.append({
-                        'member_id': bill['member_id'],
-                        'member_name': f"{member.firstname} {member.name}",
-                        'success': False,
-                        'message': message
-                    })
-                    failed_count += 1
-                    
-            except Exception as e:
-                error_msg = str(e)
-                email_status[str(bill['member_id'])] = {
-                    'status': 'failed',
-                    'sent_at': None,
-                    'error': error_msg,
-                    'attempts': email_status.get(str(bill['member_id']), {}).get('attempts', 0) + 1
-                }
-                results.append({
-                    'member_id': bill['member_id'],
-                    'member_name': f"{member.firstname} {member.name}",
-                    'success': False,
-                    'message': error_msg
-                })
-                failed_count += 1
-        
-        save_bill_email_status(folder, email_status)
-        
-        # Save to database for better tracking and reporting
-        # SKIP in test mode - don't save test emails to database
-        if not is_test_mode:
-            try:
-                from models import BillEmail, db
-                folder_parts = folder.replace('_bills_', '').split('-')
-                year = int(folder_parts[0]) if len(folder_parts) > 0 and folder_parts[0].isdigit() else datetime.now().year
-                quarter_str = folder_parts[1] if len(folder_parts) > 1 else 'Q1'
-                quarter = int(quarter_str.replace('Q', '')) if quarter_str.startswith('Q') else 1
-                
-                for result in results:
-                    # Skip test emails in database
-                    if result.get('is_test'):
-                        continue
-                    
-                    member_id = result['member_id']
-                    if member_id == 'Unknown':
-                        continue
-                        
-                    # Find the bill filename for this member
-                    bill_filename = ''
-                    for b in bills:
-                        if b['member_id'] == member_id:
-                            bill_filename = b['filename']
-                            break
-                    
-                    # Get member email
-                    member = Member.query.get(member_id)
-                    member_email = member.email if member and member.email else None
-                    
-                    # Check if record exists for this member/year/quarter
-                    existing = BillEmail.query.filter_by(
-                        beMemberID=member_id,
-                        beYear=year,
-                        beQuarter=quarter
-                    ).first()
-                    
-                    if existing:
-                        # Update existing record
-                        existing.beStatus = 'sent' if result['success'] else 'failed'
-                        if result['success']:
-                            existing.beSentDate = datetime.now()
-                            existing.beEmailTo = member_email
-                        existing.beErrorMessage = result['message'] if not result['success'] else None
-                        if result['success']:
-                            existing.beResendCount = (existing.beResendCount or 0) + 1
-                    else:
-                        # Create new record
-                        bill_email = BillEmail(
-                            beMemberID=member_id,
-                            beYear=year,
-                            beQuarter=quarter,
-                            beFilename=bill_filename,
-                            beSentDate=datetime.now() if result['success'] else None,
-                            beEmailTo=member_email,
-                            beStatus='sent' if result['success'] else 'failed',
-                            beErrorMessage=result['message'] if not result['success'] else None,
-                            beResendCount=1 if result['success'] else 0
-                        )
-                        db.session.add(bill_email)
-                    
-                db.session.commit()
-                print(f"DEBUG: Saved {len(results)} email records to database")
-            except Exception as db_error:
-                print(f"Warning: Could not save to database: {db_error}")
-                import traceback
-                traceback.print_exc()
-                try:
-                    db.session.rollback()
-                except:
-                    pass
-        
-        # Return JSON for AJAX, redirect for form POST
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({
-                'success': True,
-                'sent_count': sent_count,
-                'failed_count': failed_count,
-                'results': results
-            })
-        else:
-            if is_test_mode:
-                flash(f'TEST MODE: {sent_count} test emails sent to BCC only. Recipients did NOT receive emails. No bills were marked as sent.', 'info')
-            else:
-                if sent_count > 0:
-                    flash(f'Successfully sent {sent_count} bills.', 'success')
-                if failed_count > 0:
-                    flash(f'Failed to send {failed_count} bills.', 'warning')
-        return redirect(f'/accounting/bills/{folder}/review')
-        
+        # Forward to the queue endpoint
+        return queue_bills_for_sending(folder)
     except Exception as e:
         import traceback
         print(f"ERROR in send_bills: {e}")
         print(traceback.format_exc())
-        if request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': False, 'error': str(e)}), 500
-        else:
-            flash(f'Error sending bills: {str(e)}', 'error')
-            return redirect(f'/accounting/bills/{folder}/review')
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/accounting/bills/<folder>/resend', methods=['POST'])
