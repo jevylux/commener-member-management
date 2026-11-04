@@ -11,7 +11,7 @@
 #}
 {% macro sortable_head(endpoint, column, label, current_key, current_dir, target_fn, indicator_fn) %}
   <th class="sortable-header{% if column == current_key %} active{% endif %}">
-    <a href="{{ target_fn(endpoint, column, current_key, current_dir) }}"
+    <a href="{{ url_for(endpoint) }}{{ target_fn(endpoint, column, current_key, current_dir) }}"
        class="text-decoration-none text-reset"
        data-sort-column="{{ column }}">
       {{ label }}{{ indicator_fn(column, current_key, current_dir) }}
