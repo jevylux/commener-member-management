@@ -1,59 +1,10 @@
 {% extends "base.html" %} {% block content %}
 <h1>Member Fee Payments</h1>
-
-  <a href="{{ url_for('create_member_fee_payment') }}"
+<a
+  href="{{ url_for('create_member_fee_payment') }}"
   class="btn btn-primary mb-3"
   >Create New Member Fee Payment</a
 >
-
-<!-- Filter Form -->
-<div class="card mb-3">
-  <div class="card-body">
-    <form method="GET" action="{{ url_for('list_member_fee_payments') }}" class="row g-3">
-      <div class="col-md-4">
-        <label for="year" class="form-label">Filter by Year</label>
-        <select name="year" id="year" class="form-select">
-          <option value="">All Years</option>
-          {% for year in available_years %}
-          <option value="{{ year }}" {% if selected_year == year %}selected{% endif %}>
-            {{ year }}
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-      
-      <div class="col-md-4">
-        <label for="status" class="form-label">Filter by Status</label>
-        <select name="status" id="status" class="form-select">
-          <option value="">All Statuses</option>
-          {% for status in available_statuses %}
-          <option value="{{ status }}" {% if selected_status == status %}selected{% endif %}>
-            {{ status|capitalize }}
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-      
-      <div class="col-md-4">
-        <label class="form-label d-block">&nbsp;</label>
-        <button type="submit" class="btn btn-primary">Apply Filters</button>
-        <a href="{{ url_for('list_member_fee_payments') }}" class="btn btn-secondary">Clear</a>
-      </div>
-    </form>
-  </div>
-</div>
-
-<!-- Results Count -->
-<p class="text-muted">
-  Showing {{ member_fee_payments|length }} payment(s)
-  {% if selected_year or selected_status %}
-    (filtered
-    {% if selected_year %}for year {{ selected_year }}{% endif %}
-    {% if selected_year and selected_status %}, {% endif %}
-    {% if selected_status %}status: {{ selected_status }}{% endif %})
-  {% endif %}
-</p>
-
 <table class="table table-striped">
   <thead>
     <tr>
@@ -77,20 +28,16 @@
         {{ member_fee_payment.member_fee.mfYear }} - {{
         member_fee_payment.member_fee.mfamount }}
       </td>
-      <td>{{ member_fee_payment.paymentDate or 'Not paid' }}</td>
+      <td>{{ member_fee_payment.paymentDate }}</td>
+      <td>{{ member_fee_payment.paymentStatus }}</td>
       <td>
-        <span class="badge bg-{% if member_fee_payment.paymentStatus == 'paid' %}success{% elif member_fee_payment.paymentStatus == 'overdue' %}danger{% else %}warning{% endif %}">
-          {{ member_fee_payment.paymentStatus|capitalize }}
-        </span>
-      </td>
-      <td>
-        
-          <a href="{{ url_for('detail_member_fee_payment', id=member_fee_payment.mfpID) }}"
+        <a
+          href="{{ url_for('detail_member_fee_payment', id=member_fee_payment.mfpID) }}"
           class="btn btn-info btn-sm"
           >View</a
         >
-        
-          <a href="{{ url_for('update_member_fee_payment', id=member_fee_payment.mfpID) }}"
+        <a
+          href="{{ url_for('update_member_fee_payment', id=member_fee_payment.mfpID) }}"
           class="btn btn-warning btn-sm"
           >Edit</a
         >
@@ -111,12 +58,5 @@
     </tr>
     {% endfor %}
   </tbody>
-</table> 
-
-{% if member_fee_payments|length == 0 %}
-<div class="alert alert-info">
-  No member fee payments found with the selected filters.
-</div>
-{% endif %}
-
+</table>
 {% endblock %}

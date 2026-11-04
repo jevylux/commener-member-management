@@ -88,23 +88,19 @@
         </div>
         <div class="col-md-3">
           <!-- Test/Live Mode Switch -->
-          <div class="form-check form-switch">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="sendMode"
-              name="send_mode"
-              value="live"
-            />
-            <label
-              class="form-check-label fw-bold"
-              for="sendMode"
-              id="sendModeLabel"
-            >
-              <span class="badge bg-warning text-dark">TEST MODE</span>
-            </label>
+          <div class="d-flex align-items-center gap-2 mb-1">
+            <div class="form-check form-switch m-0">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="sendMode"
+                name="send_mode"
+                value="live"
+              />
+            </div>
+            <span id="sendModeBadge" class="badge bg-warning text-dark">TEST MODE</span>
           </div>
-          <small class="text-muted">Emails go only to BCC in test mode</small>
+          <small id="sendModeHint" class="text-muted">Emails go only to BCC in test mode</small>
         </div>
         <div class="col-md-6 text-end">
           <button type="submit" class="btn btn-success" id="btnSendSelected">
@@ -258,12 +254,15 @@
   // Update send mode label
   function updateSendModeLabel() {
     var checkbox = document.getElementById("sendMode");
-    var label = document.getElementById("sendModeLabel");
+    var badge = document.getElementById("sendModeBadge");
+    var hint = document.getElementById("sendModeHint");
     var sendBtn = document.getElementById("btnSendSelected");
 
-    if (checkbox && label) {
+    if (checkbox && badge) {
       if (checkbox.checked) {
-        label.innerHTML = '<span class="badge bg-success">LIVE MODE</span>';
+        badge.className = "badge bg-success";
+        badge.textContent = "LIVE MODE";
+        if (hint) hint.textContent = "Emails will be sent to members directly";
         if (sendBtn) {
           sendBtn.classList.remove("btn-success");
           sendBtn.classList.add("btn-danger");
@@ -271,8 +270,9 @@
             '<i class="bi bi-envelope"></i> Send Selected (LIVE)';
         }
       } else {
-        label.innerHTML =
-          '<span class="badge bg-warning text-dark">TEST MODE</span>';
+        badge.className = "badge bg-warning text-dark";
+        badge.textContent = "TEST MODE";
+        if (hint) hint.textContent = "Emails go only to BCC in test mode";
         if (sendBtn) {
           sendBtn.classList.remove("btn-danger");
           sendBtn.classList.add("btn-success");

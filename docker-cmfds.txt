@@ -1,7 +1,0 @@
-commands to create docker image :
-build the image :
-docker build -t commenergy_member_management .
-
-copy the image in order to import to synology dev:
-
-docker save -o commenergy_member_management.tar commenergy_member_management:latest

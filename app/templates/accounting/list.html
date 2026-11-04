@@ -6,16 +6,6 @@
 <a href="{{ url_for('list_accounting_unbilled') }}" class="btn btn-primary mb-3"
   >List unbilled Accounting Records</a
 >
-<a href="{{ url_for('list_accounting_files') }}" class="btn btn-primary mb-3"
-  >List Accounting Files</a
->
-<a href="{{ url_for('create_quarterly_report') }}" class="btn btn-primary mb-3"
-  >Create Quarterly Report</a
->
-<a href="/accounting/bills/list" class="btn btn-primary mb-3">
-  View Bill Folders
-</a>
-
 <table class="table table-striped">
   <thead>
     <tr>
@@ -64,7 +54,7 @@
           <button
             type="submit"
             class="btn btn-danger btn-sm"
-            onclick="return confirm('Are you sure?');"
+            onclick="return confirm('Are you sure?')"
           >
             Delete
           </button>

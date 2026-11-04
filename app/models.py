@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from datetime import date, datetime
+from datetime import date
 
 db = SQLAlchemy()
 
@@ -160,29 +160,3 @@ class BillEmail(db.Model):
     
     def __repr__(self):
         return f'<BillEmail {self.beYear}-Q{self.beQuarter} Member:{self.beMemberID} Status:{self.beStatus}>'
-
-
-class AccountingQuarterly(db.Model):
-    """Quarterly accounting data imported from CSV reports."""
-    __tablename__ = 'accounting_quarterly'
-    
-    aqID = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    aqYear = db.Column(db.Integer, nullable=False)
-    aqQuarter = db.Column(db.Integer, nullable=False)
-    aqMemberID = db.Column(db.Integer, db.ForeignKey('members.id'), nullable=False)
-    aqConsProd = db.Column(db.Numeric(10, 2), default=0)
-    aqMemberFee = db.Column(db.Numeric(10, 2), default=0)
-    aqTotalAmount = db.Column(db.Numeric(10, 2), default=0)
-    aqImportedDate = db.Column(db.DateTime, default=datetime.now)
-    aqSourceFile = db.Column(db.String(255))
-    
-    # Relationship to Member
-    member = db.relationship('Member', backref='quarterly_accountings', lazy=True)
-    
-    __table_args__ = (
-        db.UniqueConstraint('aqYear', 'aqQuarter', 'aqMemberID', name='uix_quarterly_accounting'),
-        db.Index('ix_quarterly_year_quarter', 'aqYear', 'aqQuarter'),
-    )
-    
-    def __repr__(self):
-        return f'<AccountingQuarterly {self.aqYear}-Q{self.aqQuarter} Member:{self.aqMemberID} Amount:{self.aqTotalAmount}>'
