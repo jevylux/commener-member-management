@@ -1,5 +1,5 @@
 
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, send_file, Response
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, send_file, Response, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine, text, bindparam
 from flask_wtf import FlaskForm
@@ -2576,77 +2576,80 @@ def _email_worker(folder_name):
     """Background worker that processes the email queue."""
     print(f"[EmailWorker] Starting background processing for {folder_name}")
     
-    queue_data = load_email_queue(folder_name)
-    if not queue_data:
-        print(f"[EmailWorker] No queue found for {folder_name}")
-        return
-    
-    queue_data['status'] = 'running'
-    queue_file = get_email_queue_file_path(folder_name)
-    with open(queue_file, 'w') as f:
-        json.dump(queue_data, f, indent=2)
-    
-    # Parse year and quarter from folder name
-    folder_parts = folder_name.replace('_bills_', '').split('-')
-    year = folder_parts[0] if len(folder_parts) > 0 else str(datetime.now().year)
-    quarter = folder_parts[1].replace('Q', '') if len(folder_parts) > 1 and folder_parts[1].startswith('Q') else '1'
-    
-    test_mode = queue_data.get('test_mode', False)
-    
-    for item in queue_data['items']:
-        if item['status'] != 'pending':
-            continue
+    with app.app_context():
+        queue_data = load_email_queue(folder_name)
+        if not queue_data:
+            print(f"[EmailWorker] No queue found for {folder_name}")
+            return
         
-        member_id = item['member_id']
-        filepath = item['filepath']
-        
-        # Update status to sending
-        update_queue_item_status(folder_name, member_id, 'sending')
-        
-        try:
-            member = Member.query.get(member_id)
-            if not member:
-                update_queue_item_status(folder_name, member_id, 'failed', 'Member not found')
-                continue
-            
-            # Send the email
-            success, message, was_test = send_bill_email(
-                member_email=member.email,
-                member_name=f"{member.firstname} {member.name}".strip(),
-                bill_path=filepath,
-                year=year,
-                quarter=quarter,
-                is_resend=False,
-                test_mode=test_mode
-            )
-            
-            if success:
-                update_queue_item_status(folder_name, member_id, 'sent')
-                print(f"[EmailWorker] Sent to {member.firstname} {member.name}: {message}")
-            else:
-                update_queue_item_status(folder_name, member_id, 'failed', message)
-                print(f"[EmailWorker] Failed for {member.firstname} {member.name}: {message}")
-            
-            # Small delay to avoid overwhelming SMTP server
-            time.sleep(2)
-            
-        except Exception as e:
-            update_queue_item_status(folder_name, member_id, 'failed', str(e))
-            print(f"[EmailWorker] Exception for member {member_id}: {e}")
-            time.sleep(2)
-    
-    # Mark queue as completed
-    queue_data = load_email_queue(folder_name)
-    if queue_data:
-        queue_data['status'] = 'completed'
+        queue_data['status'] = 'running'
+        queue_file = get_email_queue_file_path(folder_name)
         with open(queue_file, 'w') as f:
             json.dump(queue_data, f, indent=2)
         
-        progress = load_email_progress(folder_name)
-        if progress:
-            progress['status'] = 'completed'
-            progress['percent'] = 100
-            save_email_progress(folder_name, progress)
+        # Parse year and quarter from folder name
+        folder_parts = folder_name.replace('_bills_', '').split('-')
+        year = folder_parts[0] if len(folder_parts) > 0 else str(datetime.now().year)
+        quarter = folder_parts[1].replace('Q', '') if len(folder_parts) > 1 and folder_parts[1].startswith('Q') else '1'
+        
+        test_mode = queue_data.get('test_mode', False)
+        
+        for item in queue_data['items']:
+            if item['status'] != 'pending':
+                continue
+            
+            member_id = item['member_id']
+            filepath = item['filepath']
+            
+            # Update status to sending
+            update_queue_item_status(folder_name, member_id, 'sending')
+            
+            try:
+                member = Member.query.get(member_id)
+                if not member:
+                    update_queue_item_status(folder_name, member_id, 'failed', 'Member not found')
+                    continue
+                
+                # Send the email
+                success, message, was_test = send_bill_email(
+                    member_email=member.email,
+                    member_name=f"{member.firstname} {member.name}".strip(),
+                    bill_path=filepath,
+                    year=year,
+                    quarter=quarter,
+                    is_resend=False,
+                    test_mode=test_mode
+                )
+                
+                if success:
+                    update_queue_item_status(folder_name, member_id, 'sent')
+                    print(f"[EmailWorker] Sent to {member.firstname} {member.name}: {message}")
+                else:
+                    update_queue_item_status(folder_name, member_id, 'failed', message)
+                    print(f"[EmailWorker] Failed for {member.firstname} {member.name}: {message}")
+                
+                # Small delay to avoid overwhelming SMTP server
+                time.sleep(2)
+                
+            except Exception as e:
+                update_queue_item_status(folder_name, member_id, 'failed', str(e))
+                print(f"[EmailWorker] Exception for member {member_id}: {e}")
+                time.sleep(2)
+        
+        # Mark queue as completed
+        queue_data = load_email_queue(folder_name)
+        if queue_data:
+            queue_data['status'] = 'completed'
+            with open(queue_file, 'w') as f:
+                json.dump(queue_data, f, indent=2)
+            
+            progress = load_email_progress(folder_name)
+            if progress:
+                progress['status'] = 'completed'
+                progress['percent'] = 100
+                save_email_progress(folder_name, progress)
+    
+    print(f"[EmailWorker] Completed processing for {folder_name}")
     
     print(f"[EmailWorker] Completed processing for {folder_name}")
 
