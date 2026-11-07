@@ -12,6 +12,18 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 from enum import Enum
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# ==============================================================================
+# EMAIL CONFIGURATION - Loaded from environment variables
+# ==============================================================================
+LENEDA_CONFIG = {
+    'LENEDA_ENERGY_ID': os.getenv('LENEDA_ENERGY_ID'),
+    'LENEDA_API_KEY': os.getenv('LENEDA_API_KEY')
+}
 
 
 class PodType(Enum):
@@ -168,11 +180,11 @@ class ConfigGenerator:
                 "url": "https://api.leneda.lu",
                 "energyId": {
                     "header": "X-ENERGY-ID",
-                    "value": "LUXE-MA-DU-ZPUGN"
+                    "value": LENEDA_CONFIG["LENEDA_ENERGY_ID"]
                 },
                 "apiKey": {
                     "header": "X-API-KEY",
-                    "value": os.getenv('LENEDA_API_KEY', '')
+                    "value": LENEDA_CONFIG["LENEDA_API_KEY"]
                 },
                 "api": {
                     "meteringData": "/api/metering-points/"
