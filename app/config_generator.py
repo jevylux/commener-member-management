@@ -172,7 +172,7 @@ class ConfigGenerator:
                 },
                 "apiKey": {
                     "header": "X-API-KEY",
-                    "value": "e0e3f107-1836-4717-a090-d1863fe9f30c"
+                    "value": os.getenv('LENEDA_API_KEY', '')
                 },
                 "api": {
                     "meteringData": "/api/metering-points/"

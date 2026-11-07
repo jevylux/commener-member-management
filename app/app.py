@@ -38,22 +38,26 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # ==============================================================================
-# EMAIL CONFIGURATION - Unified for all email sending
+# EMAIL CONFIGURATION - Loaded from environment variables
 # ==============================================================================
 EMAIL_CONFIG = {
-    'SMTP_SERVER': 'securemail.aplus.net',
-    'SMTP_PORT': 465,
-    'SMTP_USER': 'marc@durbach.com',
-    'SMTP_PASSWORD': 'XJ!s9TeQZ32BcPQu@k',
-    'FROM_EMAIL': 'marc@durbach.com',
-    'FROM_NAME': 'Communauté Energétique',
-    'BCC_EMAIL': 'stroumdeelen@durbach.com'  # BCC all emails to this address
+    'SMTP_SERVER': os.getenv('SMTP_SERVER', 'securemail.aplus.net'),
+    'SMTP_PORT': int(os.getenv('SMTP_PORT', '465')),
+    'SMTP_USER': os.getenv('SMTP_USER'),
+    'SMTP_PASSWORD': os.getenv('SMTP_PASSWORD'),
+    'FROM_EMAIL': os.getenv('FROM_EMAIL'),
+    'FROM_NAME': os.getenv('FROM_NAME', 'Communauté Energétique'),
+    'BCC_EMAIL': os.getenv('BCC_EMAIL')
 }
 PAYMENT_CONFIG = {
-    'PAYCONIQ_Number': '661196114',
-    'BankAccount': 'IBAN : LU12 0019 1303 5350 3000  - BIC : BCEELULL - Marc Durbach',
+    'PAYCONIQ_Number': os.getenv('PAYCONIQ_NUMBER'),
+    'BankAccount': os.getenv('BANK_ACCOUNT'),
 }
 
 
@@ -317,7 +321,7 @@ app = Flask(__name__)
 #app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////Users/marcdurbach/Development/python/ComEner-data-management/database/commEnergy.db'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////app/database/commEnergy.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'your-secret-key' 
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['BILL_OUTPUT_DIR'] = '/app/data/databills'
 db.init_app(app)
 engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
@@ -1593,7 +1597,7 @@ def regenerate_all_configs():
 )'''
 
 # Configuration for Leneda API (could also be moved to config)
-LENEDA_API_KEY = os.environ.get('LENEDA_API_KEY', 'e0e3f107-1836-4717-a090-d1863fe9f30c')
+LENEDA_API_KEY = os.getenv('LENEDA_API_KEY')
 LENEDA_ENERGY_ID = os.environ.get('LENEDA_ENERGY_ID', 'LUXE-MA-DU-ZPUGN')
 
 

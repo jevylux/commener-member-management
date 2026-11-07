@@ -1,19 +1,23 @@
 import smtplib
 import ssl
 import zipfile
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Email configuration for sending bills
 EMAIL_CONFIG = {
-    'SMTP_SERVER': 'securemail.aplus.net',
-    'SMTP_PORT': 465,
-    'SMTP_USER': 'marc@durbach.com',
-    'SMTP_PASSWORD': 'XJ!s9TeQZ32BcPQu@k',
-    'FROM_EMAIL': 'stroumdeelen@durbach.com',
-    'FROM_NAME': 'Communauté Energétique'
+    'SMTP_SERVER': os.getenv('SMTP_SERVER', 'securemail.aplus.net'),
+    'SMTP_PORT': int(os.getenv('SMTP_PORT', '465')),
+    'SMTP_USER': os.getenv('SMTP_USER'),
+    'SMTP_PASSWORD': os.getenv('SMTP_PASSWORD'),
+    'FROM_EMAIL': os.getenv('FROM_EMAIL'),
+    'FROM_NAME': os.getenv('FROM_NAME', 'Communauté Energétique')
 }
 
 

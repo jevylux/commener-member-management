@@ -26,11 +26,7 @@ Flask-SQLAlchemy==3.1.1
 Flask-WTF==1.2.2
 fonttools==4.57.0
 greenlet==3.2.3
-<<<<<<< Updated upstream
-gunicorn 
-=======
 gunicorn==21.2.0
->>>>>>> Stashed changes
 h11==0.16.0
 idna==3.10
 ipykernel==6.29.5

@@ -9,14 +9,18 @@ Can be used as a CLI tool or imported into the Flask app.
 import requests
 import json
 import sys
+import os
 from typing import List, Dict, Optional, Tuple
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Leneda API Configuration
 LENEDA_API_URL = "https://api.leneda.eu/api/metering-data-access-request"
 
-# Your credentials (should be moved to environment variables or config file)
-DEFAULT_API_KEY = "e0e3f107-1836-4717-a090-d1863fe9f30c"
-DEFAULT_ENERGY_ID = "LUXE-MA-DU-ZPUGN"
+# Your credentials (loaded from environment variables)
+DEFAULT_API_KEY = os.getenv('LENEDA_API_KEY')
+DEFAULT_ENERGY_ID = os.getenv('DEFAULT_ENERGY_ID', "LUXE-MA-DU-ZPUGN")
 
 # OBIS Codes organized by category and pod type applicability
 OBIS_CODES = {

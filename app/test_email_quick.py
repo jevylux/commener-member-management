@@ -5,16 +5,20 @@ Quick email test - minimal version for rapid debugging.
 
 import smtplib
 import ssl
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from dotenv import load_dotenv
 
-# Edit these values
-SMTP_SERVER = 'securemail.aplus.net'
-SMTP_PORT = 465
-SMTP_USER = 'marc@durbach.com'
-SMTP_PASSWORD = 'XJ!s9TeQZ32BcPQu@k'
-FROM_EMAIL = 'marc@durbach.com'
-TO_EMAIL = 'marc@durbach.com'  # <-- CHANGE THIS to your email
+load_dotenv()
+
+# Load configuration from environment variables
+SMTP_SERVER = os.getenv('SMTP_SERVER', 'securemail.aplus.net')
+SMTP_PORT = int(os.getenv('SMTP_PORT', '465'))
+SMTP_USER = os.getenv('SMTP_USER')
+SMTP_PASSWORD = os.getenv('SMTP_PASSWORD')
+FROM_EMAIL = os.getenv('FROM_EMAIL')
+TO_EMAIL = os.getenv('FROM_EMAIL')  # For testing, send to yourself
 
 def quick_test():
     print(f"Testing email to {TO_EMAIL}...")
