@@ -186,7 +186,7 @@ class ConfigGenerator:
                 },
                 "api": {
                     "meteringData": "/api/metering-points/"
-                }
+                },
             },
             "pricing": {
                 "kwhprice": 0.11,
